@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petroaseo | Control de Contenedores de Residuos</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <!-- Google Fonts: Outfit (headings) & Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-theme">
+    <div class="app-container">
+        <!-- BARRA LATERAL (SIDEBAR) -->
+        <aside class="sidebar" id="app-sidebar">
+            <div class="sidebar-brand-logo" style="padding: 24px 20px 16px 20px; display: flex; align-items: center; justify-content: center; width: 100%;">
+                <div style="background-color: white; border: 1.5px solid #0f172a; border-radius: 20px; padding: 12px 24px; width: 100%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); height: 68px; box-sizing: border-box;">
+                    <img src="logo.png?v=3" alt="Petroaseo Logo" style="height: 26px; max-width: 100%; object-fit: contain;">
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li>
+                        <button class="nav-btn active" data-target="reporte-contenedor" id="btn-reporte-contenedor">
+                            <i data-lucide="file-plus"></i>
+                            <span>Reportar Contenedor</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-target="status-general" id="btn-status-general">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>Status General</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-target="historial-contenedores" id="btn-historial-contenedores">
+                            <i data-lucide="history"></i>
+                            <span>Historial</span>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <!-- Botón de Autenticación de Administrador -->
+                <button class="btn btn-secondary" id="btn-admin-auth" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 38px; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition-smooth); background-color: var(--bg-card); color: var(--text-secondary); margin-bottom: 12px; box-sizing: border-box;">
+                    <i data-lucide="shield-alert" id="admin-auth-icon" style="width: 15px; height: 15px; color: var(--text-secondary); transition: var(--transition-smooth);"></i>
+                    <span id="admin-auth-text">Acceso Admin</span>
+                </button>
+                <div class="user-profile">
+                    <div class="user-avatar">SP</div>
+                    <div class="user-info">
+                        <span class="user-name">Supervisor de Turno</span>
+                        <span class="user-role">Control de Planta</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+            <!-- Barra Superior (Topbar) -->
+            <header class="topbar">
+                <!-- Elementos Móviles (Logo, Título Centrado y Botón Menú) -->
+                <div class="mobile-logo-wrapper">
+                    <div style="background-color: white; border: 1px solid #0f172a; border-radius: 12px; padding: 4px 10px; display: flex; align-items: center; justify-content: center; height: 38px; width: 120px; box-sizing: border-box;">
+                        <img src="logo.png?v=3" alt="Petroaseo Logo" style="max-height: 22px; max-width: 100%; object-fit: contain;">
+                    </div>
+                </div>
+                <div class="mobile-view-title" id="mobile-title" style="font-size: 12px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.1em; text-align: center; flex-grow: 1;">REGISTRO</div>
+                <button id="btn-mobile-menu" class="btn-icon mobile-menu-btn" style="height: 38px; width: 38px; border-radius: 12px; border: 1px solid #e2e8f0; align-items: center; justify-content: center; background-color: white; box-sizing: border-box;">
+                    <i data-lucide="menu" style="width: 18px; height: 18px; color: #0f172a;"></i>
+                </button>
+                <div class="page-title-area">
+                    <h2 id="current-view-title">Reportar Contenedor</h2>
+                    <p id="current-view-subtitle">Registrar o actualizar información de contenedores en tránsito</p>
+                </div>
+
+            </header>
+
+            <!-- CONTENEDOR DE VISTAS (SPA) -->
+            <div class="view-container">
+                
+                <!-- SECCIÓN: REPORTE DE CONTENEDOR (FORMULARIO DE RESIDUOS POR LOTE) - ACTIVA POR DEFECTO -->
+                <section id="view-reporte-contenedor" class="app-view active">
+                    <div class="form-container">
+                        <div class="card form-card">
+                            <div class="card-header">
+                                <h3 id="form-card-title">Registro de Contenedores por Lotes</h3>
+                                <p>Registre las observaciones del recorrido organizadas en un sencillo proceso de 2 pasos.</p>
+                            </div>
+                            <div class="card-body">
+                                
+                                <!-- WIZARD STEPPER -->
+                                <div class="form-stepper">
+                                    <div class="step-item active" id="stepper-step-1">
+                                        <div class="step-circle">1</div>
+                                        <div class="step-label">Datos del Turno</div>
+                                    </div>
+                                    <div class="step-connector"></div>
+                                    <div class="step-item" id="stepper-step-2">
+                                        <div class="step-circle">2</div>
+                                        <div class="step-label">Contenedores Observados</div>
+                                    </div>
+                                </div>
+
+                                <form id="report-container-form" novalidate>
+                                    
+                                    <!-- PASO 1: DATOS GENERALES DEL TURNO -->
+                                    <div id="form-step-1" class="form-step-section">
+                                        <div class="form-section-title">
+                                            <i data-lucide="shield"></i>
+                                            <span>1. Identificación del Turno / Responsables</span>
+                                        </div>
+                                        <div class="form-grid header-grid" style="margin-bottom: 24px;">
+                                            <!-- Supervisor -->
+                                            <div class="form-group">
+                                                <label for="input-supervisor">Supervisor que Reporta <span class="required">*</span></label>
+                                                <div class="input-icon-wrapper">
+                                                    <i data-lucide="user"></i>
+                                                    <input type="text" id="input-supervisor" placeholder="Nombre del Supervisor" required>
+                                                </div>
+                                                <span class="error-message" id="err-supervisor">Ingrese el nombre del supervisor.</span>
+                                            </div>
+
+                                            <!-- Inspector -->
+                                            <div class="form-group">
+                                                <label for="input-inspector">Inspector que Observó <span class="required">*</span></label>
+                                                <div class="input-icon-wrapper">
+                                                    <i data-lucide="user-check"></i>
+                                                    <input type="text" id="input-inspector" placeholder="Nombre del Inspector" required>
+                                                </div>
+                                                <span class="error-message" id="err-inspector">Ingrese el nombre del inspector.</span>
+                                            </div>
+
+                                            <!-- Fecha de Reporte -->
+                                            <div class="form-group">
+                                                <label for="input-report-date">Fecha de Observación / Reporte <span class="required">*</span></label>
+                                                <div class="input-icon-wrapper">
+                                                    <i data-lucide="calendar"></i>
+                                                    <input type="date" id="input-report-date" required>
+                                                </div>
+                                                <span class="error-message" id="err-report-date">Seleccione una fecha válida.</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-actions" style="margin-top: 24px;">
+                                            <button type="button" class="btn btn-secondary" id="btn-cancel-step1">Cancelar</button>
+                                            <button type="button" class="btn btn-primary" id="btn-next-step" style="background-color: var(--primary); box-shadow: 0 4px 14px var(--primary-glow);">
+                                                <span>Continuar al Paso 2</span>
+                                                <i data-lucide="arrow-right" style="margin-left: 8px; width: 16px; height: 16px;"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- PASO 2: CONTENEDORES OBSERVADOS -->
+                                    <div id="form-step-2" class="form-step-section" style="display: none;">
+                                        
+                                        <!-- BARRA RESUMEN DE PASO 1 (READ ONLY) -->
+                                        <div class="header-summary-bar">
+                                            <div class="summary-item">
+                                                <i data-lucide="user" class="summary-icon"></i>
+                                                <div class="summary-text">
+                                                    <span class="summary-lbl">Supervisor</span>
+                                                    <span class="summary-val" id="summary-val-supervisor">-</span>
+                                                </div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <i data-lucide="user-check" class="summary-icon"></i>
+                                                <div class="summary-text">
+                                                    <span class="summary-lbl">Inspector</span>
+                                                    <span class="summary-val" id="summary-val-inspector">-</span>
+                                                </div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <i data-lucide="calendar" class="summary-icon"></i>
+                                                <div class="summary-text">
+                                                    <span class="summary-lbl">Fecha</span>
+                                                    <span class="summary-val" id="summary-val-date">-</span>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn-edit-summary" id="btn-edit-header" title="Editar cabecera">
+                                                <i data-lucide="edit-3"></i>
+                                                <span>Modificar</span>
+                                            </button>
+                                        </div>
+
+                                        <div class="form-section-title" style="margin-top: 20px;">
+                                            <i data-lucide="package"></i>
+                                            <span>2. Contenedores Observados en Planta</span>
+                                        </div>
+                                        
+                                        <!-- Contenedor de Filas Dinámicas -->
+                                        <div id="batch-containers-list" class="batch-list">
+                                            <!-- Generado dinámicamente por JS -->
+                                        </div>
+
+                                        <!-- Botón para Agregar Más Filas -->
+                                        <button type="button" class="btn btn-secondary btn-add-row" id="btn-add-container-row">
+                                            <i data-lucide="plus-circle"></i>
+                                            <span>+ Agregar Otro Contenedor en este Turno</span>
+                                        </button>
+
+                                        <!-- Acciones del Paso 2 -->
+                                        <div class="form-actions" style="margin-top: 36px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+                                            <button type="button" class="btn btn-secondary" id="btn-prev-step">
+                                                <i data-lucide="arrow-left" style="margin-right: 8px; width: 16px; height: 16px;"></i>
+                                                <span>Volver al Paso 1</span>
+                                            </button>
+                                            <button type="submit" class="btn btn-primary btn-save-batch" id="btn-submit-form">
+                                                <i data-lucide="save"></i>
+                                                <span>Guardar Lote Completo (0)</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: STATUS GENERAL (DASHBOARD DE CUMPLIMIENTO) -->
+                <section id="view-status-general" class="app-view">
+                    <!-- Filtros de Pestañas de Monitoreo (Tab Navigation) -->
+                    <div class="monitoring-tabs">
+                        <button type="button" class="tab-btn active" data-tab="observados" onclick="switchMonitoringTab('observados')">
+                            <i data-lucide="eye"></i>
+                            <span>Observados</span>
+                            <span class="tab-count" id="count-tab-observados">0</span>
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="presentados" onclick="switchMonitoringTab('presentados')">
+                            <i data-lucide="send"></i>
+                            <span>Presentados</span>
+                            <span class="tab-count" id="count-tab-presentados">0</span>
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="listos" onclick="switchMonitoringTab('listos')">
+                            <i data-lucide="check-circle-2"></i>
+                            <span>Listos</span>
+                            <span class="tab-count" id="count-tab-listos">0</span>
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="todos" onclick="switchMonitoringTab('todos')">
+                            <i data-lucide="list"></i>
+                            <span>Todos</span>
+                            <span class="tab-count" id="count-tab-todos">0</span>
+                        </button>
+                    </div>
+
+                    <!-- Panel de Monitoreo de Contenedores en Poza (Coordinador) -->
+                    <div class="card table-card" style="margin-top: 0; padding: 0;">
+                        <div class="card-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                            <div>
+                                <h3>Monitoreo y Control de Contenedores en Planta</h3>
+                                <p style="margin-top: 4px;">Supervise los contenedores en poza, controle su estado operativo y revise las imágenes cargadas.</p>
+                            </div>
+                            <button class="btn" id="btn-save-status-changes" style="display: none; background-color: #10b981; color: white; border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); align-items: center; gap: 8px; flex-shrink: 0; font-weight: 600;">
+                                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                                <span>Guardar</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="window.print()" id="btn-print-report" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
+                                <span>Imprimir Reporte</span>
+                            </button>
+                        </div>
+                        <div class="table-responsive screen-only-table">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Contenedor</th>
+                                        <th>Tipo de Residuo</th>
+                                        <th>Reportado Por</th>
+                                        <th>Fecha Observado</th>
+                                        <th>Fecha Límite (SLA)</th>
+                                        <th>Fotos Validar</th>
+                                        <th style="width: 220px;">Estado Operativo (Administración)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="monitoring-table-body">
+                                    <!-- Renderizado dinámicamente por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Tabla Exclusiva de Impresión en el Orden Solicitado -->
+                        <div class="print-only-table-container">
+                            <table class="data-table print-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Tipo</th>
+                                        <th>Capacidad</th>
+                                        <th>Supervisor</th>
+                                        <th>Inspector</th>
+                                        <th>Observación</th>
+                                        <th>Fecha de Observación</th>
+                                        <th>Fecha Límite</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="print-monitoring-table-body">
+                                    <!-- Renderizado dinámicamente por JS para impresión -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: HISTORIAL DE CONTENEDORES (BÚSQUEDA Y FILTRADO) -->
+                <section id="view-historial-contenedores" class="app-view">
+                    <!-- Controles de Búsqueda y Filtro -->
+                    <div class="filter-bar-card card">
+                        <div class="filter-grid">
+                            <!-- Buscador General -->
+                            <div class="filter-group search-filter">
+                                <label for="search-input">Buscar Registro</label>
+                                <div class="input-icon-wrapper">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="search-input" placeholder="Buscar por Pabellón, Supervisor, Inspector...">
+                                </div>
+                            </div>
+                            
+                            <!-- Filtro por Tipo de Residuo -->
+                            <div class="filter-group">
+                                <label for="filter-type">Tipo de Residuo</label>
+                                <div class="input-icon-wrapper">
+                                    <i data-lucide="filter"></i>
+                                    <select id="filter-type">
+                                        <option value="all">Todos los tipos</option>
+                                        <option value="organico">Orgánicos (Marrón)</option>
+                                        <option value="aprovechable">Aprovechables (Verde)</option>
+                                        <option value="peligroso">Peligrosos (Rojo)</option>
+                                        <option value="no-aprovechable">No Aprovechables (Negro)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Filtro por Estado de SLA -->
+                            <div class="filter-group">
+                                <label for="filter-sla">Estado de SLA</label>
+                                <div class="input-icon-wrapper">
+                                    <i data-lucide="clock"></i>
+                                    <select id="filter-sla">
+                                        <option value="all">Todos los plazos</option>
+                                        <option value="on-time">En plazo</option>
+                                        <option value="due-today">Vence hoy</option>
+                                        <option value="expired">Expirado (Vencido)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Botón Limpiar -->
+                            <div class="filter-group btn-filter-group">
+                                <button class="btn btn-secondary" id="btn-clear-filters">
+                                    <i data-lucide="filter-x"></i>
+                                    <span>Limpiar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Resultados -->
+                    <div class="table-card card">
+                        <div class="table-responsive">
+                            <table class="data-table" id="containers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Tipo de Residuo</th>
+                                        <th>Capacidad</th>
+                                        <th>Encadenado</th>
+                                        <th>Reportado Por (Supervisor / Inspector)</th>
+                                        <th>Fecha Observación</th>
+                                        <th>Fecha Registro</th>
+                                        <th>SLA Límite (3 días hábiles)</th>
+                                        <th>Estado SLA</th>
+                                        <th class="actions-col">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body-containers">
+                                    <!-- Renderizado dinámicamente por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-empty-state" id="table-empty-state" style="display: none;">
+                            <i data-lucide="folder-open"></i>
+                            <h4>No se encontraron reportes</h4>
+                            <p>Pruebe cambiando los criterios de búsqueda o de filtros.</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DETALLE DE CONTENEDOR OBSERVARDO -->
+    <div class="modal-backdrop" id="detail-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-box">
+                    <h3 id="modal-container-id">A1-12</h3>
+                    <span class="badge" id="modal-container-type-badge">Orgánicos</span>
+                </div>
+                <button class="btn-close-modal" id="btn-close-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Supervisor:</span>
+                        <span class="detail-val" id="modal-val-supervisor">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Inspector Observador:</span>
+                        <span class="detail-val" id="modal-val-inspector">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Capacidad:</span>
+                        <span class="detail-val" id="modal-val-capacity">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">¿Dejado Encadenado?:</span>
+                        <span class="detail-val" id="modal-val-chained">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Fecha Observación:</span>
+                        <span class="detail-val" id="modal-val-report-date">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Fecha Registro:</span>
+                        <span class="detail-val" id="modal-val-registration-date">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">SLA Límite de Presentación:</span>
+                        <span class="detail-val" id="modal-val-sla-deadline" style="font-weight: 700;">-</span>
+                    </div>
+                </div>
+
+                <!-- Sección de Evidencias Fotográficas -->
+                <div class="photos-section">
+                    <h4>Evidencias Fotográficas (Obligatorias)</h4>
+                    <div class="photos-grid">
+                        <div class="photo-card">
+                            <span class="photo-title">Foto 1: Inspector Observador</span>
+                            <div class="photo-preview-wrapper">
+                                <img id="modal-img-inspector" src="" alt="Foto Inspector">
+                            </div>
+                        </div>
+                        <div class="photo-card">
+                            <span class="photo-title">Foto 2: Contenedor Encadenado en Poza</span>
+                            <div class="photo-preview-wrapper">
+                                <img id="modal-img-container" src="" alt="Foto Contenedor Encadenado">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Línea de Tiempo del Contenedor -->
+                <div class="timeline-section">
+                    <h4>Historial de Observación / Bitácora</h4>
+                    <div class="timeline" id="container-timeline">
+                        <!-- Generado dinámicamente por JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-modal-close-footer">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LIGHTBOX DE FOTOS -->
+    <div class="modal-backdrop" id="lightbox-modal" style="z-index: 200;">
+        <div class="modal-card" style="max-width: 600px; background-color: rgba(4, 5, 8, 0.95); border: 2px solid var(--border-color);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                <h3 id="lightbox-title">Evidencia Fotográfica</h3>
+                <button class="btn-close-modal" id="btn-close-lightbox">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 400px;">
+                <img id="lightbox-img" src="" alt="Zoom Evidencia" style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--border-radius-md); border: 1px solid var(--border-color);">
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RESUMEN WHATSAPP -->
+    <div class="modal-backdrop" id="whatsapp-modal" style="z-index: 210;">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i data-lucide="message-square" style="color: #25d366; vertical-align: middle; margin-right: 8px;"></i>Reporte Listo para WhatsApp</h3>
+                <button class="btn-close-modal" id="btn-close-whatsapp">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Copie el siguiente reporte formateado para enviarlo al grupo de WhatsApp:
+                </p>
+                <div class="whatsapp-textarea-wrapper" style="position: relative;">
+                    <textarea id="whatsapp-text-area" readonly style="width: 100%; height: 280px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 12px; font-family: monospace; font-size: 13px; color: var(--text-primary); resize: none; line-height: 1.5; outline: none;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="btn-close-whatsapp-footer">Cerrar</button>
+                <button type="button" class="btn" id="btn-copy-whatsapp" style="background-color: #25d366; color: white; display: flex; align-items: center; gap: 8px; border: none; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);">
+                    <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
+                    <span>Copiar Reporte</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INGRESO ADMINISTRADOR -->
+    <div class="modal-backdrop" id="admin-login-modal" style="z-index: 220;">
+        <div class="modal-card" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3><i data-lucide="shield-alert" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Acceso Administrador</h3>
+                <button class="btn-close-modal" id="btn-close-admin-login">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="admin-login-form">
+                <div class="modal-body" style="padding: 24px 20px;">
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+                        Ingrese la contraseña de administrador para acceder a las opciones de monitoreo general y edición:
+                    </p>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                        <label for="admin-password" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Contraseña *</label>
+                        <div class="input-icon-wrapper">
+                            <i data-lucide="lock"></i>
+                            <input type="password" id="admin-password" placeholder="Contraseña de Administrador" required style="padding-left: 42px;">
+                        </div>
+                        <span class="error-message" id="admin-login-error" style="color: var(--status-retained); font-size: 12px; margin-top: 4px; display: none;">
+                            Contraseña incorrecta. Intente de nuevo.
+                        </span>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="btn-close-admin-login-footer">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--primary); color: white;">Ingresar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- OVERLAY PARA SIDEBAR EN MÓVIL -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- NOTIFICACIONES TOAST (PARA FEEDBACK DE ACCIONES) -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Custom JavaScript -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
