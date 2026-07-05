@@ -92,7 +92,7 @@ const INITIAL_CONTAINERS = [
 
 // --- VARIABLES DE ESTADO ---
 let containers = [];
-let editingContainerId = null;
+let editingReportId = null;
 let photoInspectorBase64 = null;
 let photoContainerBase64 = null;
 let currentMonitoringTab = "observados";
@@ -242,13 +242,14 @@ async function loadData() {
         try {
             const { data, error } = await supabase
                 .from('containers')
-                .select('id,pavilion,number,supervisor,inspector,report_date,type,capacity,chained,status_admin,notes,history,created_at,updated_at')
+                .select('report_id,id,pavilion,number,supervisor,inspector,report_date,type,capacity,chained,status_admin,notes,history,created_at,updated_at')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
             if (data && data.length > 0) {
                 containers = data.map(c => ({
+                    reportId: c.report_id || c.reportId || generateUUID(),
                     id: c.id,
                     pavilion: c.pavilion,
                     number: parseInt(c.number),
@@ -268,7 +269,10 @@ async function loadData() {
                 })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             } else {
                 // Si la base de datos está vacía, sembrar con los contenedores iniciales
-                containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+                containers = INITIAL_CONTAINERS.map(c => ({
+                    ...c,
+                    reportId: c.reportId || generateUUID()
+                })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                 await saveData();
             }
             
@@ -294,16 +298,26 @@ async function loadData() {
                     c.statusAdmin = "pendiente";
                     updated = true;
                 }
+                if (!c.reportId) {
+                    c.reportId = generateUUID();
+                    updated = true;
+                }
             });
             containers.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             if (updated) saveData();
         } else {
-            containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+            containers = INITIAL_CONTAINERS.map(c => ({
+                ...c,
+                reportId: c.reportId || generateUUID()
+            })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             saveData();
         }
     } catch (e) {
         console.error("Error de lectura en LocalStorage:", e);
-        containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        containers = INITIAL_CONTAINERS.map(c => ({
+            ...c,
+            reportId: c.reportId || generateUUID()
+        })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     }
 }
 
@@ -319,6 +333,7 @@ async function saveData() {
         try {
             // Guardar masivamente (upsert) en la tabla containers
             const dbData = containers.map(c => ({
+                report_id: c.reportId,
                 id: c.id,
                 pavilion: c.pavilion,
                 number: String(c.number),
@@ -486,8 +501,19 @@ const triggerSwitchView = setupNavigation();
 
 let currentBatch = [];
 
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 function createEmptyBatchItem() {
     return {
+        reportId: generateUUID(),
         id: "",
         type: "",
         capacity: "1100 LT",
@@ -508,13 +534,13 @@ function renderBatchForm() {
     const btnSubmitForm = document.getElementById("btn-submit-form");
     const btnAddRow = document.getElementById("btn-add-container-row");
     
-    if (editingContainerId !== null) {
+    if (editingReportId !== null) {
         btnAddRow.style.display = "none";
     } else {
         btnAddRow.style.display = "flex";
     }
 
-    btnSubmitForm.querySelector("span").textContent = editingContainerId !== null 
+    btnSubmitForm.querySelector("span").textContent = editingReportId !== null 
         ? "Guardar Cambios" 
         : `Guardar Lote Completo (${currentBatch.length})`;
 
@@ -526,7 +552,7 @@ function renderBatchForm() {
                         <i data-lucide="package"></i>
                         <span>Contenedor #${i + 1}</span>
                     </div>
-                    ${(currentBatch.length > 1 && editingContainerId === null) ? `
+                    ${(currentBatch.length > 1 && editingReportId === null) ? `
                         <button type="button" class="btn-remove-row" onclick="removeBatchRow(${i})">
                             <i data-lucide="trash-2"></i>
                             <span>Eliminar</span>
@@ -541,7 +567,7 @@ function renderBatchForm() {
                         <label>Código de Contenedor <span class="required">*</span></label>
                         <div class="input-icon-wrapper">
                             <i data-lucide="tag"></i>
-                            <input type="text" class="input-row-id" data-index="${i}" placeholder="Ej: A1-5 o B-20" value="${item.id}" ${editingContainerId !== null ? 'disabled' : ''} required>
+                            <input type="text" class="input-row-id" data-index="${i}" placeholder="Ej: A1-5 o B-20" value="${item.id}" ${editingReportId !== null ? 'disabled' : ''} required>
                         </div>
                         <span class="error-message err-row-id">Código inválido.</span>
                     </div>
@@ -1012,7 +1038,7 @@ function renderMonitoringPanel() {
         const deadlineObj = new Date(sla.deadline);
         const deadlineFormatted = deadlineObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
         
-        const currentStatusVal = unsavedChanges[c.id] || c.statusAdmin;
+        const currentStatusVal = unsavedChanges[c.reportId] || c.statusAdmin;
         
         let slaBadgeHtml = "";
         if (currentStatusVal === "listo") {
@@ -1043,17 +1069,17 @@ function renderMonitoringPanel() {
                 </td>
                 <td>
                     <div class="photo-thumbnail-group">
-                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.id}', 'photoInspector')" title="Ver Foto del Inspector">
+                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto del Inspector">
                             <i data-lucide="user" style="width: 14px; height: 14px;"></i>
                         </button>
-                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.id}', 'photoContainer')" title="Ver Foto del Contenedor">
+                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto del Contenedor">
                             <i data-lucide="image" style="width: 14px; height: 14px;"></i>
                         </button>
                     </div>
                 </td>
                 <td class="status-cell-bg val-${currentStatusVal}">
                     <div class="status-select-wrapper">
-                        <select class="status-select val-${currentStatusVal}" onchange="changeContainerAdminStatus('${c.id}', this.value)">
+                        <select class="status-select val-${currentStatusVal}" onchange="changeContainerAdminStatus('${c.reportId}', this.value)">
                             <option value="pendiente" ${currentStatusVal === "pendiente" ? "selected" : ""}>Reportado (Blanco)</option>
                             <option value="en-reparacion" ${currentStatusVal === "en-reparacion" ? "selected" : ""}>En reparación (Naranja)</option>
                             <option value="listo" ${currentStatusVal === "listo" ? "selected" : ""}>Listo (Verde)</option>
@@ -1117,14 +1143,14 @@ window.switchMonitoringTab = function(tab) {
     renderMonitoringPanel();
 };
 
-window.changeContainerAdminStatus = function(id, newStatus) {
-    const idx = containers.findIndex(c => c.id === id);
+window.changeContainerAdminStatus = function(reportId, newStatus) {
+    const idx = containers.findIndex(c => c.reportId === reportId);
     if (idx > -1) {
         const savedStatus = containers[idx].statusAdmin;
         if (savedStatus === newStatus) {
-            delete unsavedChanges[id];
+            delete unsavedChanges[reportId];
         } else {
-            unsavedChanges[id] = newStatus;
+            unsavedChanges[reportId] = newStatus;
         }
         
         // Mostrar/Ocultar botón Guardar
@@ -1142,13 +1168,13 @@ window.changeContainerAdminStatus = function(id, newStatus) {
 };
 
 window.saveAllStatusChanges = function() {
-    const ids = Object.keys(unsavedChanges);
-    if (ids.length === 0) return;
+    const reportIds = Object.keys(unsavedChanges);
+    if (reportIds.length === 0) return;
 
     let updatedCount = 0;
-    ids.forEach(id => {
-        const newStatus = unsavedChanges[id];
-        const idx = containers.findIndex(c => c.id === id);
+    reportIds.forEach(reportId => {
+        const newStatus = unsavedChanges[reportId];
+        const idx = containers.findIndex(c => c.reportId === reportId);
         if (idx > -1) {
             const oldStatus = containers[idx].statusAdmin;
             containers[idx].statusAdmin = newStatus;
@@ -1310,7 +1336,7 @@ function switchFormStep(step) {
 
 function resetFormState() {
     reportForm.reset();
-    editingContainerId = null;
+    editingReportId = null;
     
     document.getElementById("form-card-title").textContent = "Registro de Contenedores por Lotes";
     
@@ -1364,10 +1390,10 @@ reportForm.addEventListener("submit", (e) => {
             const pavilion = parts[0];
             const number = parseInt(parts[1], 10);
             
-            const existingIdx = containers.findIndex(c => c.id === id);
+            const existingIdx = editingReportId !== null ? containers.findIndex(c => c.reportId === editingReportId) : -1;
             
             if (existingIdx > -1) {
-                // EDITAR CONTENEDOR EXISTENTE
+                // EDITAR REGISTRO EXISTENTE
                 const prevChained = containers[existingIdx].chained;
                 
                 containers[existingIdx].supervisor = supervisor;
@@ -1391,6 +1417,7 @@ reportForm.addEventListener("submit", (e) => {
             } else {
                 // NUEVO REGISTRO EN EL LOTE
                 const newContainer = {
+                    reportId: item.reportId || generateUUID(),
                     id: id,
                     pavilion: pavilion,
                     number: number,
@@ -1417,6 +1444,7 @@ reportForm.addEventListener("submit", (e) => {
                 containers.unshift(newContainer);
             }
         });
+        editingReportId = null;
         
         // 1. Compilar Reporte para WhatsApp
         const dateObj = new Date(reportDate + "T00:00:00");
@@ -1533,22 +1561,6 @@ function validateForm() {
             errId.textContent = "Formato inválido (Ej: A1-5, B-20) con número del 1 al 35.";
             errId.style.display = "block";
             isValid = false;
-        } else if (usedIdsInBatch.has(rawId)) {
-            grpId.classList.add("invalid");
-            errId.textContent = "Este código ya fue ingresado en este lote.";
-            errId.style.display = "block";
-            isValid = false;
-        } else {
-            // Validar existencia global de ID (si no se edita ese mismo ID)
-            const globalIdx = containers.findIndex(c => c.id === rawId);
-            if (globalIdx > -1 && editingContainerId !== rawId) {
-                grpId.classList.add("invalid");
-                errId.textContent = "Esta poza / contenedor ya tiene un reporte activo.";
-                errId.style.display = "block";
-                isValid = false;
-            } else {
-                usedIdsInBatch.add(rawId);
-            }
         }
         
         // Validar Tipo
@@ -1662,7 +1674,7 @@ function renderHistoryTable(filteredList = null) {
         });
         
         return `
-            <tr id="row-${c.id}">
+            <tr id="row-${c.reportId}">
                 <td>
                     <span class="container-id-cell">${c.id}</span>
                 </td>
@@ -1690,7 +1702,7 @@ function renderHistoryTable(filteredList = null) {
                 </td>
                 <td class="actions-col">
                     <div style="display:flex; justify-content:flex-end; gap:6px;">
-                        <button class="btn-icon" onclick="openDetailsModal('${c.id}')" title="Ver Detalles y Fotos">
+                        <button class="btn-icon" onclick="openDetailsModal('${c.reportId}')" title="Ver Detalles y Fotos">
                             <i data-lucide="eye"></i>
                         </button>
                     </div>
@@ -1744,11 +1756,11 @@ const detailModal = document.getElementById("detail-modal");
 const btnCloseModal = document.getElementById("btn-close-modal");
 const btnCloseModalFooter = document.getElementById("btn-modal-close-footer");
 const btnModalEdit = document.getElementById("btn-modal-edit");
-let activeModalContainerId = null;
+let activeModalReportId = null;
 
 function closeModal() {
     detailModal.classList.remove("open");
-    activeModalContainerId = null;
+    activeModalReportId = null;
 }
 
 [btnCloseModal, btnCloseModalFooter].forEach(btn => {
@@ -1759,11 +1771,11 @@ detailModal.addEventListener("click", (e) => {
     if (e.target === detailModal) closeModal();
 });
 
-window.openDetailsModal = async function(id) {
-    const container = containers.find(c => c.id === id);
+window.openDetailsModal = async function(reportId) {
+    const container = containers.find(c => c.reportId === reportId);
     if (!container) return;
     
-    activeModalContainerId = id;
+    activeModalReportId = reportId;
     
     const sla = getSlaInfo(container.reportDate);
     const typeMeta = TYPE_DICT[container.type];
@@ -1828,7 +1840,7 @@ window.openDetailsModal = async function(id) {
             const { data, error } = await supabase
                 .from('containers')
                 .select('photo_inspector, photo_container')
-                .eq('id', id)
+                .eq('report_id', reportId)
                 .single();
 
             if (error) throw error;
@@ -1881,11 +1893,11 @@ window.openDetailsModal = async function(id) {
     detailModal.classList.add("open");
 };
 
-window.editContainer = function(id) {
-    const container = containers.find(c => c.id === id);
+window.editContainer = function(reportId) {
+    const container = containers.find(c => c.reportId === reportId);
     if (!container) return;
     
-    editingContainerId = id;
+    editingReportId = reportId;
     closeModal();
     
     // Cargar datos en los campos de cabecera
@@ -1896,6 +1908,7 @@ window.editContainer = function(id) {
     // Cargar lote con un único ítem
     currentBatch = [
         {
+            reportId: container.reportId,
             id: container.id,
             type: container.type,
             capacity: container.capacity,
@@ -1914,18 +1927,32 @@ window.editContainer = function(id) {
 
 if (btnModalEdit) {
     btnModalEdit.addEventListener("click", () => {
-        if (activeModalContainerId) {
-            editContainer(activeModalContainerId);
+        if (activeModalReportId) {
+            editContainer(activeModalReportId);
         }
     });
 }
 
-window.confirmDeleteContainer = function(id) {
-    if (confirm(`¿Desea eliminar el reporte del contenedor ${id}? Esta acción no se puede deshacer.`)) {
-        containers = containers.filter(c => c.id !== id);
+window.confirmDeleteContainer = function(reportId) {
+    const container = containers.find(c => c.reportId === reportId);
+    const label = container ? container.id : reportId;
+    if (confirm(`¿Desea eliminar el reporte del contenedor ${label}? Esta acción no se puede deshacer.`)) {
+        if (isSupabaseConfigured) {
+            supabase
+                .from('containers')
+                .delete()
+                .eq('report_id', reportId)
+                .then(({ error }) => {
+                    if (error) {
+                        console.error("Error al eliminar de Supabase:", error);
+                        showToast("Error al eliminar en la nube.", "error");
+                    }
+                });
+        }
+        containers = containers.filter(c => c.reportId !== reportId);
         saveData();
         renderHistoryTable();
-        showToast(`Reporte ${id} eliminado satisfactoriamente.`, "warning");
+        showToast(`Reporte ${label} eliminado satisfactoriamente.`, "warning");
     }
 };
 
