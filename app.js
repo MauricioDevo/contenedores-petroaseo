@@ -1247,13 +1247,15 @@ document.getElementById("lightbox-modal").addEventListener("click", (e) => {
     }
 });
 
-window.openLightboxOnDemand = async function(id, field) {
-    const container = containers.find(c => c.id === id);
+window.openLightboxOnDemand = async function(reportId, field) {
+    const container = containers.find(c => c.reportId === reportId);
     if (!container) return;
+
+    const label = container.id || reportId;
 
     // Si ya está en memoria (o es mock), abrir directamente
     if (container[field]) {
-        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${id}` : `Foto Contenedor: ${id}`, container[field]);
+        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${label}` : `Foto Contenedor: ${label}`, container[field]);
         return;
     }
 
@@ -1269,7 +1271,7 @@ window.openLightboxOnDemand = async function(id, field) {
         const { data, error } = await supabase
             .from('containers')
             .select(field === 'photoInspector' ? 'photo_inspector' : 'photo_container')
-            .eq('id', id)
+            .eq('report_id', reportId)
             .single();
 
         if (error) throw error;
@@ -1284,7 +1286,7 @@ window.openLightboxOnDemand = async function(id, field) {
         container[field] = base64Photo;
         
         // Abrir Lightbox
-        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${id}` : `Foto Contenedor: ${id}`, base64Photo);
+        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${label}` : `Foto Contenedor: ${label}`, base64Photo);
     } catch (err) {
         console.error("Error al cargar imagen bajo demanda:", err);
         showToast("Error al cargar la imagen desde la nube.", "error");
