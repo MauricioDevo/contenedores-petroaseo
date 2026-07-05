@@ -332,25 +332,35 @@ async function saveData() {
     if (isSupabaseConfigured) {
         try {
             // Guardar masivamente (upsert) en la tabla containers
-            const dbData = containers.map(c => ({
-                report_id: c.reportId,
-                id: c.id,
-                pavilion: c.pavilion,
-                number: String(c.number),
-                supervisor: c.supervisor,
-                inspector: c.inspector,
-                report_date: c.reportDate,
-                type: c.type,
-                capacity: c.capacity,
-                chained: c.chained,
-                status_admin: c.statusAdmin,
-                photo_inspector: c.photoInspector,
-                photo_container: c.photoContainer,
-                notes: c.notes,
-                history: c.history,
-                created_at: c.createdAt || new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }));
+            const dbData = containers.map(c => {
+                const row = {
+                    report_id: c.reportId,
+                    id: c.id,
+                    pavilion: c.pavilion,
+                    number: String(c.number),
+                    supervisor: c.supervisor,
+                    inspector: c.inspector,
+                    report_date: c.reportDate,
+                    type: c.type,
+                    capacity: c.capacity,
+                    chained: c.chained,
+                    status_admin: c.statusAdmin,
+                    notes: c.notes,
+                    history: c.history,
+                    created_at: c.createdAt || new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                // Incluir fotos solo si están presentes en memoria (evita sobrescribir con null las fotos no cargadas)
+                if (c.photoInspector !== undefined && c.photoInspector !== null) {
+                    row.photo_inspector = c.photoInspector;
+                }
+                if (c.photoContainer !== undefined && c.photoContainer !== null) {
+                    row.photo_container = c.photoContainer;
+                }
+                
+                return row;
+            });
 
             const { error } = await supabase
                 .from('containers')
