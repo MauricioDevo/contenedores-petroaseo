@@ -276,8 +276,9 @@ async function loadData() {
             renderHistoryTable();
             return;
         } catch (err) {
-            console.error("Error al cargar desde Supabase, cargando desde localStorage:", err);
-            showToast("Error al conectar con la base de datos. Cargando datos locales.", "warning");
+            console.error("Error al cargar desde Supabase:", err);
+            const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            showToast(`Error al cargar datos (Supabase): ${errMsg}`, "error");
         }
     }
 
@@ -341,7 +342,8 @@ async function saveData() {
             if (error) throw error;
         } catch (err) {
             console.error("Error al guardar en Supabase:", err);
-            showToast("Error al guardar en la nube. Cambios guardados localmente.", "warning");
+            const errMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+            showToast(`Error al guardar en la nube: ${errMsg}`, "error");
         }
     }
 }
