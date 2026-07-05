@@ -242,7 +242,8 @@ async function loadData() {
         try {
             const { data, error } = await supabase
                 .from('containers')
-                .select('*');
+                .select('*')
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
 
@@ -264,10 +265,10 @@ async function loadData() {
                     history: c.history || [],
                     createdAt: c.created_at || c.createdAt,
                     updatedAt: c.updated_at || c.updatedAt
-                }));
+                })).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             } else {
                 // Si la base de datos está vacía, sembrar con los contenedores iniciales
-                containers = [...INITIAL_CONTAINERS];
+                containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                 await saveData();
             }
             
@@ -294,14 +295,15 @@ async function loadData() {
                     updated = true;
                 }
             });
+            containers.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             if (updated) saveData();
         } else {
-            containers = [...INITIAL_CONTAINERS];
+            containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             saveData();
         }
     } catch (e) {
         console.error("Error de lectura en LocalStorage:", e);
-        containers = [...INITIAL_CONTAINERS];
+        containers = [...INITIAL_CONTAINERS].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     }
 }
 
