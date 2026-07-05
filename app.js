@@ -196,6 +196,42 @@ function getSlaInfo(reportDateStr) {
     }
 }
 
+// Compresor de imágenes en el cliente (evita exceder límites de Supabase/Vercel)
+function compressImage(file, maxWidth, maxHeight, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const dataUrl = canvas.toDataURL("image/jpeg", quality);
+            callback(dataUrl);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 // ==========================================================================
 // ==========================================================================
 // PERSISTENCIA (SUPABASE / LOCALSTORAGE FALLBACK)
@@ -666,21 +702,20 @@ function setupBatchFormEvents() {
             const file = fileInput.files[0];
             
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    currentBatch[rowIdx][field] = event.target.result;
+                // Compresión de imagen antes de guardar para evitar exceder límites de Supabase/Vercel (max 800px, 70% calidad)
+                compressImage(file, 800, 800, 0.7, (compressedBase64) => {
+                    currentBatch[rowIdx][field] = compressedBase64;
                     
                     const uploadBox = fileInput.parentElement;
                     const imgContainer = uploadBox.querySelector(".preview-img-container");
                     const img = imgContainer.querySelector("img");
-                    img.src = event.target.result;
+                    img.src = compressedBase64;
                     imgContainer.style.display = "block";
                     
                     uploadBox.parentElement.classList.remove("invalid");
                     const errEl = uploadBox.parentElement.querySelector(".error-message");
                     if (errEl) errEl.style.display = "none";
-                };
-                reader.readAsDataURL(file);
+                });
             }
         }
     });
