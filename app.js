@@ -1079,12 +1079,12 @@ function renderMonitoringPanel() {
                 </td>
                 <td>
                     <div class="photo-thumbnail-group">
-                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto del Inspector">
+                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoInspector" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto del Inspector">
                             <i data-lucide="user" style="width: 14px; height: 14px;"></i>
-                        </button>
-                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto del Contenedor">
+                        </div>
+                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoContainer" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto del Contenedor">
                             <i data-lucide="image" style="width: 14px; height: 14px;"></i>
-                        </button>
+                        </div>
                     </div>
                 </td>
                 <td class="status-cell-bg val-${currentStatusVal}">
@@ -1135,6 +1135,58 @@ function renderMonitoringPanel() {
     }
 
     lucide.createIcons();
+    lazyLoadTableThumbnails();
+}
+
+async function lazyLoadTableThumbnails() {
+    const placeholders = document.querySelectorAll(".photo-placeholder-wrapper");
+    
+    placeholders.forEach(async el => {
+        const reportId = el.getAttribute("data-report-id");
+        const field = el.getAttribute("data-field");
+        const container = containers.find(c => c.reportId === reportId);
+        if (!container) return;
+
+        // Si ya está cargada la imagen en memoria, renderizarla de inmediato
+        if (container[field]) {
+            el.innerHTML = `<img src="${container[field]}" class="photo-thumbnail" alt="Preview">`;
+            return;
+        }
+
+        // Si no está en memoria y Supabase está configurado, la cargamos en segundo plano
+        if (isSupabaseConfigured) {
+            try {
+                const dbField = field === 'photoInspector' ? 'photo_inspector' : 'photo_container';
+                const { data, error } = await supabase
+                    .from('containers')
+                    .select(dbField)
+                    .eq('report_id', reportId)
+                    .single();
+
+                if (error) throw error;
+
+                const base64Photo = data[dbField];
+                if (base64Photo) {
+                    // Guardar en memoria caché
+                    container[field] = base64Photo;
+                    // Reemplazar el icono por la miniatura real
+                    el.innerHTML = `<img src="${base64Photo}" class="photo-thumbnail" alt="Preview">`;
+                } else {
+                    // Si no tiene foto, mostrar un icono de vacío/cancelado
+                    el.innerHTML = `<i data-lucide="slash" style="width: 14px; height: 14px; color: var(--text-muted);"></i>`;
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            } catch (err) {
+                console.error("Error al lazy-cargar la miniatura:", err);
+                el.innerHTML = `<i data-lucide="alert-circle" style="width: 14px; height: 14px; color: var(--status-retained);"></i>`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        } else {
+            // Si está offline o no configurado
+            el.innerHTML = `<i data-lucide="slash" style="width: 14px; height: 14px; color: var(--text-muted);"></i>`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    });
 }
 
 window.switchMonitoringTab = function(tab) {
