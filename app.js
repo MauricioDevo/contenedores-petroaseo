@@ -242,7 +242,7 @@ async function loadData() {
         try {
             const { data, error } = await supabase
                 .from('containers')
-                .select('*')
+                .select('id,pavilion,number,supervisor,inspector,report_date,type,capacity,chained,status_admin,notes,history,created_at,updated_at')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -1043,12 +1043,12 @@ function renderMonitoringPanel() {
                 </td>
                 <td>
                     <div class="photo-thumbnail-group">
-                        <div class="photo-thumbnail-wrapper" onclick="openLightbox('Foto Inspector: ${c.id}', '${c.photoInspector}')" title="Ver Foto de Inspector">
-                            <img src="${c.photoInspector}" class="photo-thumbnail" alt="Inspector">
-                        </div>
-                        <div class="photo-thumbnail-wrapper" onclick="openLightbox('Foto Contenedor Poza: ${c.id}', '${c.photoContainer}')" title="Ver Foto de Contenedor">
-                            <img src="${c.photoContainer}" class="photo-thumbnail" alt="Contenedor">
-                        </div>
+                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.id}', 'photoInspector')" title="Ver Foto del Inspector">
+                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                        </button>
+                        <button class="btn-photo-action" onclick="openLightboxOnDemand('${c.id}', 'photoContainer')" title="Ver Foto del Contenedor">
+                            <i data-lucide="image" style="width: 14px; height: 14px;"></i>
+                        </button>
                     </div>
                 </td>
                 <td class="status-cell-bg val-${currentStatusVal}">
@@ -1210,6 +1210,50 @@ document.getElementById("lightbox-modal").addEventListener("click", (e) => {
         document.getElementById("lightbox-modal").classList.remove("open");
     }
 });
+
+window.openLightboxOnDemand = async function(id, field) {
+    const container = containers.find(c => c.id === id);
+    if (!container) return;
+
+    // Si ya está en memoria (o es mock), abrir directamente
+    if (container[field]) {
+        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${id}` : `Foto Contenedor: ${id}`, container[field]);
+        return;
+    }
+
+    if (!isSupabaseConfigured) {
+        showToast("Imagen no disponible en modo local (Límite superado).", "warning");
+        return;
+    }
+
+    // Mostrar loader/toast mientras descarga
+    showToast("Cargando imagen desde la base de datos...", "info");
+
+    try {
+        const { data, error } = await supabase
+            .from('containers')
+            .select(field === 'photoInspector' ? 'photo_inspector' : 'photo_container')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+
+        const base64Photo = field === 'photoInspector' ? data.photo_inspector : data.photo_container;
+        if (!base64Photo) {
+            showToast("Este contenedor no cuenta con imagen de evidencia.", "warning");
+            return;
+        }
+
+        // Guardar en caché local de memoria
+        container[field] = base64Photo;
+        
+        // Abrir Lightbox
+        openLightbox(field === 'photoInspector' ? `Foto Inspector: ${id}` : `Foto Contenedor: ${id}`, base64Photo);
+    } catch (err) {
+        console.error("Error al cargar imagen bajo demanda:", err);
+        showToast("Error al cargar la imagen desde la nube.", "error");
+    }
+};
 
 // ==========================================================================
 // VISTA: REPORTE DE CONTENEDOR (LOGICA FORMULARIO)
@@ -1715,7 +1759,7 @@ detailModal.addEventListener("click", (e) => {
     if (e.target === detailModal) closeModal();
 });
 
-window.openDetailsModal = function(id) {
+window.openDetailsModal = async function(id) {
     const container = containers.find(c => c.id === id);
     if (!container) return;
     
@@ -1768,9 +1812,41 @@ window.openDetailsModal = function(id) {
     typeBadge.className = `badge ${typeMeta.badgeClass}`;
     typeBadge.textContent = typeMeta.text.split(" ")[0];
 
-    // Fotos obligatorias
-    document.getElementById("modal-img-inspector").src = container.photoInspector || MOCK_PHOTO_INSPECTOR;
-    document.getElementById("modal-img-container").src = container.photoContainer || MOCK_PHOTO_CONTAINER_CHAINED;
+    // Fotos obligatorias con cargador asíncrono
+    const imgInspEl = document.getElementById("modal-img-inspector");
+    const imgContEl = document.getElementById("modal-img-container");
+    
+    const loadingSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='100%' height='100%' fill='%231e2530'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23a0aec0'>Cargando imagen...</text></svg>";
+    imgInspEl.src = loadingSvg;
+    imgContEl.src = loadingSvg;
+
+    if (container.photoInspector || container.photoContainer) {
+        imgInspEl.src = container.photoInspector || MOCK_PHOTO_INSPECTOR;
+        imgContEl.src = container.photoContainer || MOCK_PHOTO_CONTAINER_CHAINED;
+    } else if (isSupabaseConfigured) {
+        try {
+            const { data, error } = await supabase
+                .from('containers')
+                .select('photo_inspector, photo_container')
+                .eq('id', id)
+                .single();
+
+            if (error) throw error;
+
+            container.photoInspector = data.photo_inspector || container.photoInspector;
+            container.photoContainer = data.photo_container || container.photoContainer;
+
+            imgInspEl.src = container.photoInspector || MOCK_PHOTO_INSPECTOR;
+            imgContEl.src = container.photoContainer || MOCK_PHOTO_CONTAINER_CHAINED;
+        } catch (err) {
+            console.error("Error al cargar fotos de detalles:", err);
+            imgInspEl.src = MOCK_PHOTO_INSPECTOR;
+            imgContEl.src = MOCK_PHOTO_CONTAINER_CHAINED;
+        }
+    } else {
+        imgInspEl.src = MOCK_PHOTO_INSPECTOR;
+        imgContEl.src = MOCK_PHOTO_CONTAINER_CHAINED;
+    }
 
     // Bitácora
     const timelineEl = document.getElementById("container-timeline");

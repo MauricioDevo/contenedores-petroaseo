@@ -2615,6 +2615,41 @@ button, input, select, textarea {
     box-shadow: 0 0 8px var(--primary-glow);
 }
 
+.btn-photo-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.03);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    padding: 0;
+}
+
+.btn-photo-action:hover {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px var(--primary-glow);
+    transform: translateY(-2px);
+}
+
+.light-theme .btn-photo-action {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+.light-theme .btn-photo-action:hover {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
 /* Monitoring Tab Filters */
 .monitoring-tabs {
     display: flex;
