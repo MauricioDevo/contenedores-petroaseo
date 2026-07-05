@@ -253,17 +253,17 @@ async function loadData() {
                     number: parseInt(c.number),
                     supervisor: c.supervisor,
                     inspector: c.inspector,
-                    reportDate: c.report_date,
+                    reportDate: c.report_date || c.reportDate,
                     type: c.type,
                     capacity: c.capacity,
                     chained: c.chained,
-                    statusAdmin: c.status_admin || "pendiente",
-                    photoInspector: c.photo_inspector,
-                    photoContainer: c.photo_container,
+                    statusAdmin: c.status_admin || c.statusAdmin || "pendiente",
+                    photoInspector: c.photo_inspector || c.photoInspector,
+                    photoContainer: c.photo_container || c.photoContainer,
                     notes: c.notes || "",
                     history: c.history || [],
-                    createdAt: c.created_at,
-                    updatedAt: c.updated_at
+                    createdAt: c.created_at || c.createdAt,
+                    updatedAt: c.updated_at || c.updatedAt
                 }));
             } else {
                 // Si la base de datos está vacía, sembrar con los contenedores iniciales
@@ -282,26 +282,35 @@ async function loadData() {
     }
 
     // Fallback LocalStorage
-    const stored = localStorage.getItem("waste_containers");
-    if (stored) {
-        containers = JSON.parse(stored);
-        let updated = false;
-        containers.forEach(c => {
-            if (!c.statusAdmin) {
-                c.statusAdmin = "pendiente";
-                updated = true;
-            }
-        });
-        if (updated) saveData();
-    } else {
+    try {
+        const stored = localStorage.getItem("waste_containers");
+        if (stored) {
+            containers = JSON.parse(stored);
+            let updated = false;
+            containers.forEach(c => {
+                if (!c.statusAdmin) {
+                    c.statusAdmin = "pendiente";
+                    updated = true;
+                }
+            });
+            if (updated) saveData();
+        } else {
+            containers = [...INITIAL_CONTAINERS];
+            saveData();
+        }
+    } catch (e) {
+        console.error("Error de lectura en LocalStorage:", e);
         containers = [...INITIAL_CONTAINERS];
-        saveData();
     }
 }
 
 async function saveData() {
-    // Guardar en LocalStorage como respaldo local
-    localStorage.setItem("waste_containers", JSON.stringify(containers));
+    // Guardar en LocalStorage como respaldo local (con try-catch para evitar que un QuotaExceededError rompa el flujo de Supabase)
+    try {
+        localStorage.setItem("waste_containers", JSON.stringify(containers));
+    } catch (e) {
+        console.warn("Límite de espacio en LocalStorage superado. Los datos se guardarán directamente en Supabase:", e);
+    }
 
     if (isSupabaseConfigured) {
         try {
