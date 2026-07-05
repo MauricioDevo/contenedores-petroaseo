@@ -575,6 +575,40 @@ button, input, select, textarea {
     border-bottom: 1px solid var(--border-color);
 }
 
+.card-header-flex {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.btn-save-status {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.btn-print-report {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .card-header h3 {
     font-size: 18px;
     font-weight: 600;
@@ -1523,6 +1557,43 @@ button, input, select, textarea {
     .app-container {
         flex-direction: column;
         position: relative;
+    }
+    
+    .card-header-flex {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .card-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .btn-save-status,
+    .btn-print-report {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+        box-sizing: border-box;
+    }
+    
+    .monitoring-tabs {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        box-sizing: border-box !important;
+    }
+    
+    .tab-btn {
+        flex-shrink: 0 !important;
     }
     
     /* SIDEBAR COMO DRAWER SLIDE-OUT EN MÓVIL */

@@ -254,19 +254,21 @@
 
                     <!-- Panel de Monitoreo de Contenedores en Poza (Coordinador) -->
                     <div class="card table-card" style="margin-top: 0; padding: 0;">
-                        <div class="card-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                        <div class="card-header card-header-flex">
                             <div>
                                 <h3>Monitoreo y Control de Contenedores en Planta</h3>
                                 <p style="margin-top: 4px;">Supervise los contenedores en poza, controle su estado operativo y revise las imágenes cargadas.</p>
                             </div>
-                            <button class="btn" id="btn-save-status-changes" style="display: none; background-color: #10b981; color: white; border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); align-items: center; gap: 8px; flex-shrink: 0; font-weight: 600;">
-                                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
-                                <span>Guardar</span>
-                            </button>
-                            <button class="btn btn-secondary" onclick="window.print()" id="btn-print-report" style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                                <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
-                                <span>Imprimir Reporte</span>
-                            </button>
+                            <div class="card-header-actions">
+                                <button class="btn btn-save-status" id="btn-save-status-changes" style="display: none;">
+                                    <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                                    <span>Guardar</span>
+                                </button>
+                                <button class="btn btn-secondary btn-print-report" onclick="window.print()" id="btn-print-report">
+                                    <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
+                                    <span>Imprimir Reporte</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="table-responsive screen-only-table">
                             <table class="data-table">
