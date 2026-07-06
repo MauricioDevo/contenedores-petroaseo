@@ -417,6 +417,11 @@ function setupNavigation() {
     };
 
     function switchView(targetViewId) {
+        // Bloquear acceso a Status General a usuarios no-administradores
+        if (currentUserRole !== "admin" && targetViewId === "status-general") {
+            targetViewId = "reporte-contenedor";
+        }
+
         // Reiniciar formulario si salimos de él sin guardar
         if (targetViewId !== "reporte-contenedor") {
             resetFormState();
