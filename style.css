@@ -2901,48 +2901,22 @@ button, input, select, textarea {
         object-fit: cover !important;
     }
 
-    /* Ocultar elementos innecesarios al imprimir */
-    .actions-col, .btn, .btn-icon, .monitoring-tabs {
+    /* Mostrar la tabla de impresión y ocultar la tabla de pantalla */
+    .print-only-table-container {
+        display: block !important;
+    }
+    .screen-only-table {
         display: none !important;
     }
 }
 
-/* Estilos Adicionales: Autenticación Multi-Rol, Usuarios y Taller */
-.input-icon-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
+/* ==========================================================================
+   ESTILOS GENERALES PANTALLA: AUTENTICACIÓN, USUARIOS, TALLER & STATUS
+   ========================================================================== */
 
-.input-icon-wrapper i {
-    position: absolute;
-    left: 14px;
-    width: 18px;
-    height: 18px;
-    color: var(--text-muted);
-    pointer-events: none;
-}
-
-.input-icon-wrapper input {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.badge-sla-pending {
-    background-color: rgba(245, 158, 11, 0.12);
-    color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.badge-sla-warning {
-    background-color: rgba(249, 115, 22, 0.15);
-    color: #f97316;
-    border: 1px solid rgba(249, 115, 22, 0.3);
-}
-
-/* Ocultar pestañas en Status General */
-#view-status-general .monitoring-tabs {
+/* Ocultar pestañas en Status General en pantalla */
+#view-status-general .monitoring-tabs,
+.app-view#view-status-general .monitoring-tabs {
     display: none !important;
 }
     
