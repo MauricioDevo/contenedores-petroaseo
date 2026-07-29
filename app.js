@@ -1117,11 +1117,11 @@ function renderMonitoringPanel() {
                 <td class="status-cell-bg val-${currentStatusVal}">
                     <div class="status-select-wrapper">
                         <select class="status-select val-${currentStatusVal}" onchange="changeContainerAdminStatus('${c.reportId}', this.value)">
-                            <option value="pendiente" ${currentStatusVal === "pendiente" ? "selected" : ""}>Reportado (Blanco)</option>
-                            <option value="en-reparacion" ${currentStatusVal === "en-reparacion" ? "selected" : ""}>En reparación (Naranja)</option>
-                            <option value="listo" ${currentStatusVal === "listo" ? "selected" : ""}>Listo (Verde)</option>
-                            <option value="presentado" ${currentStatusVal === "presentado" ? "selected" : ""}>Presentado (Azul)</option>
-                            <option value="no-encadenado" ${currentStatusVal === "no-encadenado" ? "selected" : ""}>No Encadenado (Rojo)</option>
+                            <option value="pendiente" ${currentStatusVal === "pendiente" ? "selected" : ""}>1. Reportado (Blanco)</option>
+                            <option value="en-reparacion" ${currentStatusVal === "en-reparacion" ? "selected" : ""}>2. En Reparación (Naranja)</option>
+                            <option value="listo" ${currentStatusVal === "listo" ? "selected" : ""}>3. Reparado (Verde)</option>
+                            <option value="presentado" ${currentStatusVal === "presentado" ? "selected" : ""}>4. Presentado (Azul - Culminado)</option>
+                            <option value="no-encadenado" ${currentStatusVal === "no-encadenado" ? "selected" : ""}>Alerta: No Encadenado (Rojo)</option>
                         </select>
                     </div>
                 </td>
@@ -2373,11 +2373,11 @@ window.renderTallerModule = function() {
     tbody.innerHTML = filtered.map(c => {
         const typeMeta = TYPE_DICT[c.type] || { text: "Otro", badgeClass: "" };
         const statusMeta = {
-            "pendiente": { text: "Por Reparar", badgeClass: "badge-sla-pending" },
-            "en-reparacion": { text: "En Reparación", badgeClass: "badge-sla-warning" },
-            "listo": { text: "Listo (Resuelto)", badgeClass: "badge-sla-on-time" },
-            "presentado": { text: "Presentado", badgeClass: "badge-sla-on-time" },
-            "no-encadenado": { text: "No Encadenado", badgeClass: "badge-sla-expired" }
+            "pendiente": { text: "1. Reportado", badgeClass: "badge-sla-pending" },
+            "en-reparacion": { text: "2. En Reparación", badgeClass: "badge-sla-warning" },
+            "listo": { text: "3. Reparado", badgeClass: "badge-sla-on-time" },
+            "presentado": { text: "4. Presentado (Culminado)", badgeClass: "badge-sla-on-time" },
+            "no-encadenado": { text: "Alerta: No Encadenado", badgeClass: "badge-sla-expired" }
         }[c.statusAdmin] || { text: c.statusAdmin, badgeClass: "" };
 
         const dateObj = new Date(c.reportDate + "T00:00:00");
