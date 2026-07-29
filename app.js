@@ -1465,7 +1465,7 @@ document.getElementById("btn-edit-header").addEventListener("click", () => {
     switchFormStep(1);
 });
 
-reportForm.addEventListener("submit", (e) => {
+reportForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
@@ -1536,6 +1536,10 @@ reportForm.addEventListener("submit", (e) => {
             }
         });
         editingReportId = null;
+
+        // GUARDADO GARANTIZADO EN SUPABASE Y LOCALSTORAGE ANTES DE MOSTRAR WHATSAPP
+        showToast("Guardando reporte en la base de datos...", "info");
+        await saveData();
         
         // 1. Compilar Reporte para WhatsApp
         const dateObj = new Date(reportDate + "T00:00:00");
@@ -1544,7 +1548,6 @@ reportForm.addEventListener("submit", (e) => {
         const deadlineObj = new Date(sla.deadline);
         const deadlineFormatted = deadlineObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-        // Compilar bloques por cada contenedor en el orden solicitado: Código, Tipo, Capacidad, Supervisor, Inspector, Observación, Fecha de Observación, Fecha Límite.
         let containerBlocks = "";
         currentBatch.forEach((item, index) => {
             const id = item.id.trim().toUpperCase().replace(/\s+/g, '');
@@ -1578,12 +1581,6 @@ ${containerBlocks}*Petroaseo S.A.*`;
         if (waModal) {
             waModal.classList.add("open");
         }
-
-        saveData();
-        const count = currentBatch.length;
-        resetFormState();
-        showToast(`Se registraron ${count} reportes exitosamente.`, "success");
-        triggerSwitchView("reporte-contenedor");
     } else {
         showToast("Verifique los campos con errores en las tarjetas de contenedor.", "error");
     }
@@ -2626,34 +2623,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             const waTextArea = document.getElementById("whatsapp-text-area");
             if (waTextArea) {
                 waTextArea.select();
-                waTextArea.setSelectionRange(0, 9999);
-                navigator.clipboard.writeText(waTextArea.value)
-                    .then(() => {
-                        showToast("Reporte copiado al portapapeles.", "success");
-                    })
-                    .catch(() => {
-                        document.execCommand("copy");
-                        showToast("Reporte copiado al portapapeles.", "success");
-                    });
+                waTextArea.setSelectionRange(0, 99999);
+                
+                const completeCopy = () => {
+                    const modal = document.getElementById("whatsapp-modal");
+                    if (modal) modal.classList.remove("open");
+                    resetFormState();
+                    showToast("Reporte guardado en base de datos y copiado al portapapeles.", "success");
+                    triggerSwitchView("reporte-contenedor");
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(waTextArea.value)
+                        .then(completeCopy)
+                        .catch(() => {
+                            document.execCommand("copy");
+                            completeCopy();
+                        });
+                } else {
+                    document.execCommand("copy");
+                    completeCopy();
+                }
             }
-        });
-    }
-
-    const closeWaModal = () => {
-        const modal = document.getElementById("whatsapp-modal");
-        if (modal) modal.classList.remove("open");
-        triggerSwitchView("reporte-contenedor");
-    };
-
-    const btnCloseWa = document.getElementById("btn-close-whatsapp");
-    const btnCloseWaFooter = document.getElementById("btn-close-whatsapp-footer");
-    const waModalEl = document.getElementById("whatsapp-modal");
-
-    if (btnCloseWa) btnCloseWa.addEventListener("click", closeWaModal);
-    if (btnCloseWaFooter) btnCloseWaFooter.addEventListener("click", closeWaModal);
-    if (waModalEl) {
-        waModalEl.addEventListener("click", (e) => {
-            if (e.target.id === "whatsapp-modal") closeWaModal();
         });
     }
 
