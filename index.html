@@ -33,6 +33,12 @@
                         </button>
                     </li>
                     <li>
+                        <button class="nav-btn" data-target="dashboard" id="btn-dashboard">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span>Dashboard</span>
+                        </button>
+                    </li>
+                    <li>
                         <button class="nav-btn" data-target="status-general" id="btn-status-general">
                             <i data-lucide="layout-dashboard"></i>
                             <span>Status General</span>
@@ -233,6 +239,109 @@
                                     </div>
 
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: DASHBOARD GENERAL (METRICAS Y MANTENIMIENTO) -->
+                <section id="view-dashboard" class="app-view">
+                    <div class="dashboard-stats-grid">
+                        <div class="card metric-card">
+                            <div class="metric-card-header">
+                                <span>Contenedores Observados</span>
+                                <i data-lucide="eye" class="text-muted"></i>
+                            </div>
+                            <div class="metric-card-value" id="dashboard-observed-count">0</div>
+                            <div class="metric-card-desc">Contenedores en poza por reparar</div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-card-header">
+                                <span>Total Reparados</span>
+                                <i data-lucide="check-circle" class="text-muted"></i>
+                            </div>
+                            <div class="metric-card-value" id="dashboard-repaired-count">0</div>
+                            <div class="metric-card-desc">Trabajos concluidos en Taller</div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-card-header">
+                                <span>Promedio de Reparación</span>
+                                <i data-lucide="clock" class="text-muted"></i>
+                            </div>
+                            <div class="metric-card-value" id="dashboard-avg-time">0.0h</div>
+                            <div class="metric-card-desc">Tiempo promedio desde reporte a listo</div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-card-header">
+                                <span>Cumplimiento SLA</span>
+                                <i data-lucide="gauge" class="text-muted"></i>
+                            </div>
+                            <div class="metric-card-value" id="dashboard-sla-rate">0%</div>
+                            <div class="metric-card-desc">Porcentaje dentro de los límites</div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid header-grid" style="margin-top: 24px; gap: 24px;">
+                        <!-- Resumen por Residuo -->
+                        <div class="card shadow-sm">
+                            <div class="card-header">
+                                <h3>Resumen Operativo por Tipo de Residuo</h3>
+                            </div>
+                            <div class="card-body" style="padding: 20px;">
+                                <div class="table-responsive">
+                                    <table class="custom-table" style="font-size: 13px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Tipo de Residuo</th>
+                                                <th>Observados</th>
+                                                <th>Reparados</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashboard-residue-table">
+                                            <!-- Rellenado por JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mantenimiento de Datos (Admin Only) -->
+                        <div class="card shadow-sm admin-only-block" id="dashboard-maintenance-card" style="display: none; border: 1.5px solid rgba(239, 68, 68, 0.4); background-color: rgba(239, 68, 68, 0.02);">
+                            <div class="card-header" style="border-bottom-color: rgba(239, 68, 68, 0.15); display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="shield-alert" style="color: #ef4444; width: 22px; height: 22px;"></i>
+                                <h3 style="color: #ef4444; margin: 0;">Mantenimiento y Control de Base de Datos</h3>
+                            </div>
+                            <div class="card-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0;">
+                                    Como administrador del sistema, puede descargar respaldos completos en formato JSON o realizar operaciones destructivas sobre la base de datos de contenedores en Supabase.
+                                </p>
+                                
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                    <button type="button" class="btn btn-secondary" onclick="downloadJSONBackup('all')" style="justify-content: center;">
+                                        <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 6px;"></i>
+                                        <span>Descargar Todo (JSON)</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="downloadJSONBackup('observed')" style="justify-content: center;">
+                                        <i data-lucide="download" style="width: 15px; height: 15px; margin-right: 6px;"></i>
+                                        <span>Descargar Observados</span>
+                                    </button>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; border-top: 1px solid rgba(239, 68, 68, 0.1); padding-top: 16px;">
+                                    <button type="button" class="btn btn-primary" onclick="openMaintenanceConfirmModal('history')" style="background-color: #f97316; border: none; justify-content: center; height: 38px;">
+                                        <i data-lucide="trash-2" style="width: 15px; height: 15px; margin-right: 6px;"></i>
+                                        <span>Eliminar Historial (Resolved)</span>
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="openMaintenanceConfirmModal('status')" style="background-color: #ef4444; border: none; justify-content: center; height: 38px;">
+                                        <i data-lucide="trash-2" style="width: 15px; height: 15px; margin-right: 6px;"></i>
+                                        <span>Eliminar Status (Observed)</span>
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="openMaintenanceConfirmModal('all')" style="background-color: #7f1d1d; border: none; justify-content: center; height: 38px;">
+                                        <i data-lucide="alert-triangle" style="width: 15px; height: 15px; margin-right: 6px;"></i>
+                                        <span>Restablecer Todo (Vacíar DB)</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -543,7 +652,15 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-primary" id="btn-modal-edit" style="display: none; background-color: var(--primary); border: none; align-items: center; gap: 6px;">
+                    <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                    <span>Editar</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-modal-delete" style="display: none; background-color: #ef4444; border: none; align-items: center; gap: 6px;">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                    <span>Eliminar</span>
+                </button>
                 <button class="btn btn-secondary" id="btn-modal-close-footer">Cerrar</button>
             </div>
         </div>
@@ -762,6 +879,37 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMACION DE MANTENIMIENTO SEGURO -->
+    <div class="modal-backdrop" id="maintenance-confirm-modal" style="z-index: 230;">
+        <div class="modal-card" style="max-width: 450px; border: 2px solid #ef4444;">
+            <div class="modal-header" style="background-color: rgba(239, 68, 68, 0.05);">
+                <h3 style="color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>Confirmación Requerida</span>
+                </h3>
+                <button class="btn-close-modal" id="btn-close-maintenance-modal" type="button"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p id="maintenance-warning-text" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+                    Esta acción es destructiva y no se puede deshacer. Se eliminarán permanentemente los registros seleccionados en Supabase.
+                </p>
+                <div class="form-group">
+                    <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
+                        Escriba la frase de seguridad <strong id="maintenance-required-phrase" style="color: #ef4444;">---</strong> para continuar:
+                    </label>
+                    <input type="text" id="input-maintenance-confirm-phrase" placeholder="Escriba la frase exacta aquí..." style="width: 100%; box-sizing: border-box; text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-maintenance">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-maintenance-execute" style="background-color: #ef4444; border: none;" disabled>
+                    <i data-lucide="trash-2" style="width: 15px; height: 15px;"></i>
+                    <span>Confirmar y Eliminar</span>
+                </button>
+            </div>
         </div>
     </div>
 

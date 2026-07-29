@@ -421,6 +421,10 @@ function setupNavigation() {
         "historial-contenedores": { 
             title: "Historial de Contenedores", 
             subtitle: "Búsqueda, auditoría e historial de bitácoras y fotos obligatorias" 
+        },
+        "dashboard": {
+            title: "Dashboard Operativo",
+            subtitle: "Métricas clave de desempeño, tiempos de atención y administración de datos"
         }
     };
 
@@ -431,6 +435,9 @@ function setupNavigation() {
         }
         if (currentUserRole !== "admin" && currentUserRole !== "taller" && targetViewId === "modulo-taller") {
             targetViewId = "reporte-contenedor";
+        }
+        if (currentUserRole === "taller" && targetViewId === "dashboard") {
+            targetViewId = "modulo-taller";
         }
 
         // Reiniciar formulario si salimos de él sin guardar
@@ -470,6 +477,8 @@ function setupNavigation() {
                 mobileTitle.textContent = "USUARIOS";
             } else if (targetViewId === "historial-contenedores") {
                 mobileTitle.textContent = "HISTORIAL";
+            } else if (targetViewId === "dashboard") {
+                mobileTitle.textContent = "DASHBOARD";
             }
         }
 
@@ -488,6 +497,8 @@ function setupNavigation() {
             renderUsersTable();
         } else if (targetViewId === "historial-contenedores") {
             renderHistoryTable();
+        } else if (targetViewId === "dashboard") {
+            if (typeof window.renderDashboard === "function") window.renderDashboard();
         }
     }
 
@@ -1905,6 +1916,7 @@ const detailModal = document.getElementById("detail-modal");
 const btnCloseModal = document.getElementById("btn-close-modal");
 const btnCloseModalFooter = document.getElementById("btn-modal-close-footer");
 const btnModalEdit = document.getElementById("btn-modal-edit");
+const btnModalDelete = document.getElementById("btn-modal-delete");
 let activeModalReportId = null;
 
 function closeModal() {
@@ -2039,6 +2051,9 @@ window.openDetailsModal = async function(reportId) {
     if (btnModalEdit) {
         btnModalEdit.style.display = currentUserRole === "admin" ? "inline-flex" : "none";
     }
+    if (btnModalDelete) {
+        btnModalDelete.style.display = currentUserRole === "admin" ? "inline-flex" : "none";
+    }
     detailModal.classList.add("open");
 };
 
@@ -2082,6 +2097,14 @@ if (btnModalEdit) {
     });
 }
 
+if (btnModalDelete) {
+    btnModalDelete.addEventListener("click", () => {
+        if (activeModalReportId) {
+            confirmDeleteContainer(activeModalReportId);
+        }
+    });
+}
+
 window.confirmDeleteContainer = function(reportId) {
     const container = containers.find(c => c.reportId === reportId);
     const label = container ? container.id : reportId;
@@ -2100,7 +2123,11 @@ window.confirmDeleteContainer = function(reportId) {
         }
         containers = containers.filter(c => c.reportId !== reportId);
         saveData();
+        closeModal();
+        renderMonitoringPanel();
         renderHistoryTable();
+        if (typeof renderTallerModule === "function") renderTallerModule();
+        if (typeof window.renderDashboard === "function") window.renderDashboard();
         showToast(`Reporte ${label} eliminado satisfactoriamente.`, "warning");
     }
 };
@@ -2545,6 +2572,129 @@ window.openRepairModal = function(reportId) {
     if (window.lucide) window.lucide.createIcons();
 };
 
+window.renderDashboard = function() {
+    const observedCountEl = document.getElementById("dashboard-observed-count");
+    const repairedCountEl = document.getElementById("dashboard-repaired-count");
+    const avgTimeEl = document.getElementById("dashboard-avg-time");
+    const slaRateEl = document.getElementById("dashboard-sla-rate");
+    const residueTableBody = document.getElementById("dashboard-residue-table");
+
+    if (!observedCountEl) return;
+
+    // 1. Contenedores Observados Activos (pendiente, en-reparacion, no-encadenado)
+    const observedContainers = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "en-reparacion" || c.statusAdmin === "no-encadenado");
+    observedCountEl.textContent = observedContainers.length;
+
+    // 2. Contenedores Reparados Totales (listo, presentado)
+    const repairedContainers = containers.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado");
+    repairedCountEl.textContent = repairedContainers.length;
+
+    // 3. Calcular tiempo promedio de reparación y tasa de cumplimiento SLA
+    let totalDurationMs = 0;
+    let resolvedCount = 0;
+    let slaOnTimeCount = 0;
+
+    repairedContainers.forEach(c => {
+        let tStart = null;
+        let tEnd = null;
+
+        // Buscar en el historial los timestamps
+        if (c.history && Array.isArray(c.history)) {
+            // Primer log de creación / reporte
+            const startLog = c.history.find(h => h.status === "pendiente" || h.status === "no-encadenado");
+            if (startLog && startLog.timestamp) {
+                tStart = new Date(startLog.timestamp);
+            }
+            // Primer log de listo
+            const endLog = c.history.find(h => h.status === "listo");
+            if (endLog && endLog.timestamp) {
+                tEnd = new Date(endLog.timestamp);
+            }
+        }
+
+        // Fallback si no hay historial detallado (ej. registros migrados)
+        if (!tStart) {
+            tStart = new Date(c.createdAt || c.reportDate);
+        }
+        if (!tEnd) {
+            tEnd = new Date(c.updatedAt || c.reportDate);
+        }
+
+        const durationMs = tEnd.getTime() - tStart.getTime();
+        if (durationMs > 0) {
+            totalDurationMs += durationMs;
+            resolvedCount++;
+
+            // Verificar cumplimiento SLA
+            const urgent = (c.type === "peligrosa" || c.chained === "NO");
+            const limitHours = urgent ? 24 : 72; // 1 día o 3 días
+            const durationHours = durationMs / (1000 * 60 * 60);
+
+            if (durationHours <= limitHours) {
+                slaOnTimeCount++;
+            }
+        }
+    });
+
+    // Renderizar Promedio
+    if (resolvedCount > 0) {
+        const avgHours = totalDurationMs / resolvedCount / (1000 * 60 * 60);
+        if (avgHours < 24) {
+            avgTimeEl.textContent = `${avgHours.toFixed(1)}h`;
+        } else {
+            const avgDays = avgHours / 24;
+            avgTimeEl.textContent = `${avgDays.toFixed(1)}d`;
+        }
+        
+        // SLA Rate
+        const slaPercent = (slaOnTimeCount / resolvedCount) * 100;
+        slaRateEl.textContent = `${slaPercent.toFixed(1)}%`;
+    } else {
+        avgTimeEl.textContent = "0.0h";
+        slaRateEl.textContent = "100%";
+    }
+
+    // 4. Resumen por tipo de residuo
+    const residueCounts = {
+        "organico": { observed: 0, repaired: 0, label: "Orgánicos (Marrón)" },
+        "aprovechable": { observed: 0, repaired: 0, label: "Aprovechables (Verde)" },
+        "no-aprovechable": { observed: 0, repaired: 0, label: "No Aprovechables (Negro)" },
+        "peligrosa": { observed: 0, repaired: 0, label: "Peligrosos (Rojo)" },
+        "no-encadenado": { observed: 0, repaired: 0, label: "Alerta: No Encadenado" }
+    };
+
+    containers.forEach(c => {
+        let key = c.type;
+        if (c.statusAdmin === "no-encadenado") {
+            key = "no-encadenado";
+        }
+        if (residueCounts[key]) {
+            if (c.statusAdmin === "listo" || c.statusAdmin === "presentado") {
+                residueCounts[key].repaired++;
+            } else {
+                residueCounts[key].observed++;
+            }
+        }
+    });
+
+    if (residueTableBody) {
+        residueTableBody.innerHTML = Object.keys(residueCounts).map(k => {
+            const item = residueCounts[k];
+            const total = item.observed + item.repaired;
+            return `
+                <tr>
+                    <td style="font-weight: 600;">${item.label}</td>
+                    <td style="color: ${item.observed > 0 ? 'var(--status-retained)' : 'inherit'}; font-weight: ${item.observed > 0 ? 'bold' : 'normal'};">${item.observed}</td>
+                    <td style="color: var(--status-transit);">${item.repaired}</td>
+                    <td style="font-weight: 600;">${total}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+    
+    if (window.lucide) window.lucide.createIcons();
+};
+
 // ==========================================================================
 // CONTROLADOR DE ROLES Y SESIONES
 // ==========================================================================
@@ -2563,20 +2713,25 @@ window.switchUserRole = function(role, userObj = null) {
     const btnStatusGeneral = document.getElementById("btn-status-general");
     const btnModuloTaller = document.getElementById("btn-modulo-taller");
     const btnGestionUsuarios = document.getElementById("btn-gestion-usuarios");
-
+    const btnDashboard = document.getElementById("btn-dashboard");
+ 
     const liStatus = btnStatusGeneral ? btnStatusGeneral.closest("li") : null;
     const liTaller = btnModuloTaller ? btnModuloTaller.closest("li") : null;
     const liUsuarios = btnGestionUsuarios ? btnGestionUsuarios.closest("li") : null;
-
+    const liDashboard = btnDashboard ? btnDashboard.closest("li") : null;
+    const maintenanceCard = document.getElementById("dashboard-maintenance-card");
+ 
     const avatarEl = document.querySelector(".sidebar-footer .user-avatar");
     const nameEl = document.querySelector(".sidebar-footer .user-name");
     const roleEl = document.querySelector(".sidebar-footer .user-role");
-
+ 
     if (role === "admin") {
         if (liStatus) liStatus.style.display = "block";
         if (liTaller) liTaller.style.display = "block";
         if (liUsuarios) liUsuarios.style.display = "block";
-
+        if (liDashboard) liDashboard.style.display = "block";
+        if (maintenanceCard) maintenanceCard.style.display = "block";
+ 
         if (authText) authText.textContent = "Cerrar Sesión";
         if (authIcon) {
             authIcon.setAttribute("data-lucide", "log-out");
@@ -2586,16 +2741,18 @@ window.switchUserRole = function(role, userObj = null) {
             authBtn.style.borderColor = "var(--status-transit)";
             authBtn.style.color = "var(--status-transit)";
         }
-
+ 
         if (avatarEl) avatarEl.textContent = "AD";
         if (nameEl) nameEl.textContent = currentAuthUser ? currentAuthUser.fullName : "Coordinador General";
         if (roleEl) roleEl.textContent = "Administrador de Planta";
-
+ 
     } else if (role === "taller") {
         if (liStatus) liStatus.style.display = "none";
         if (liTaller) liTaller.style.display = "block";
         if (liUsuarios) liUsuarios.style.display = "none";
-
+        if (liDashboard) liDashboard.style.display = "none";
+        if (maintenanceCard) maintenanceCard.style.display = "none";
+ 
         if (authText) authText.textContent = "Cerrar Sesión";
         if (authIcon) {
             authIcon.setAttribute("data-lucide", "log-out");
@@ -2605,17 +2762,28 @@ window.switchUserRole = function(role, userObj = null) {
             authBtn.style.borderColor = "var(--status-retained)";
             authBtn.style.color = "var(--status-retained)";
         }
-
+ 
         if (avatarEl) avatarEl.textContent = "TL";
         if (nameEl) nameEl.textContent = currentAuthUser ? currentAuthUser.fullName : "Taller de Reparaciones";
         if (roleEl) roleEl.textContent = "Área de Mantenimiento";
-
+ 
+        // Si taller está en dashboard, sacarlo
+        const activeNavBtn = document.querySelector(".nav-btn.active");
+        if (activeNavBtn) {
+            const target = activeNavBtn.getAttribute("data-target");
+            if (target === "dashboard" || target === "gestion-usuarios" || target === "status-general") {
+                triggerSwitchView("modulo-taller");
+            }
+        }
+ 
     } else {
         // Rol Guest / Público / Supervisor
         if (liStatus) liStatus.style.display = "block";
         if (liTaller) liTaller.style.display = "none";
         if (liUsuarios) liUsuarios.style.display = "none";
-
+        if (liDashboard) liDashboard.style.display = "block";
+        if (maintenanceCard) maintenanceCard.style.display = "none";
+ 
         if (authText) authText.textContent = "Acceso de Usuario";
         if (authIcon) {
             authIcon.setAttribute("data-lucide", "shield-check");
@@ -2625,11 +2793,11 @@ window.switchUserRole = function(role, userObj = null) {
             authBtn.style.borderColor = "var(--border-color)";
             authBtn.style.color = "var(--text-secondary)";
         }
-
+ 
         if (avatarEl) avatarEl.textContent = "SP";
         if (nameEl) nameEl.textContent = "Supervisor de Turno";
         if (roleEl) roleEl.textContent = "Control de Planta";
-
+ 
         // Si estaba en una vista privilegiada (como taller o usuarios), devolverlo a reporte
         const activeNavBtn = document.querySelector(".nav-btn.active");
         if (activeNavBtn) {
@@ -3050,6 +3218,140 @@ document.addEventListener("DOMContentLoaded", async () => {
         overlayEl.addEventListener("click", () => {
             sidebarEl.classList.remove("open");
             overlayEl.classList.remove("open");
+        });
+    }
+
+    // ==========================================================================
+    // BACKUPS Y OPERACIONES DE MANTENIMIENTO (ADMIN ONLY)
+    // ==========================================================================
+    
+    window.downloadJSONBackup = function(type) {
+        let dataToDownload = [];
+        let filename = "";
+
+        if (type === "all") {
+            dataToDownload = containers;
+            filename = `petroaseo_respaldo_total_${new Date().toISOString().split('T')[0]}.json`;
+        } else {
+            dataToDownload = containers.filter(c => c.statusAdmin !== "presentado");
+            filename = `petroaseo_contenedores_observados_${new Date().toISOString().split('T')[0]}.json`;
+        }
+
+        const blob = new Blob([JSON.stringify(dataToDownload, null, 4)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast("Archivo de respaldo JSON descargado con éxito.", "success");
+    };
+
+    let activeMaintenanceType = null;
+    let maintenanceRequiredPhraseText = "";
+
+    window.openMaintenanceConfirmModal = function(type) {
+        activeMaintenanceType = type;
+        const phraseEl = document.getElementById("maintenance-required-phrase");
+        const warningTextEl = document.getElementById("maintenance-warning-text");
+        const phraseInput = document.getElementById("input-maintenance-confirm-phrase");
+        const executeBtn = document.getElementById("btn-confirm-maintenance-execute");
+
+        if (phraseInput) phraseInput.value = "";
+        if (executeBtn) executeBtn.disabled = true;
+
+        if (type === "history") {
+            maintenanceRequiredPhraseText = "ELIMINAR HISTORIAL";
+            if (warningTextEl) warningTextEl.textContent = "¡CUIDADO! Se eliminarán permanentemente todos los registros históricos de contenedores resueltos (estado '4. Presentado'). Esta acción no afectará a los contenedores observados activos.";
+        } else if (type === "status") {
+            maintenanceRequiredPhraseText = "ELIMINAR STATUS";
+            if (warningTextEl) warningTextEl.textContent = "¡CUIDADO! Se eliminarán permanentemente todos los contenedores observados activos del Status General (estados '1. Reportado', '2. En Reparación', '3. Reparado', 'No Encadenado'). Esta acción vaciará el tablero activo.";
+        } else {
+            maintenanceRequiredPhraseText = "RESTABLECER TODO";
+            if (warningTextEl) warningTextEl.textContent = "¡ADVERTENCIA CRÍTICA! Se borrará TODA la base de datos de contenedores en planta, incluyendo activos, historial de bitácoras y registros. El sistema quedará en blanco.";
+        }
+
+        if (phraseEl) phraseEl.textContent = maintenanceRequiredPhraseText;
+        
+        const modal = document.getElementById("maintenance-confirm-modal");
+        if (modal) modal.classList.add("open");
+    };
+
+    window.closeMaintenanceConfirmModal = function() {
+        const modal = document.getElementById("maintenance-confirm-modal");
+        if (modal) modal.classList.remove("open");
+        activeMaintenanceType = null;
+    };
+
+    const btnCloseMaint = document.getElementById("btn-close-maintenance-modal");
+    const btnCancelMaint = document.getElementById("btn-cancel-maintenance");
+    if (btnCloseMaint) btnCloseMaint.addEventListener("click", window.closeMaintenanceConfirmModal);
+    if (btnCancelMaint) btnCancelMaint.addEventListener("click", window.closeMaintenanceConfirmModal);
+
+    const maintPhraseInput = document.getElementById("input-maintenance-confirm-phrase");
+    const maintExecuteBtn = document.getElementById("btn-confirm-maintenance-execute");
+    if (maintPhraseInput && maintExecuteBtn) {
+        maintPhraseInput.addEventListener("input", (e) => {
+            const val = e.target.value.trim().toUpperCase();
+            maintExecuteBtn.disabled = (val !== maintenanceRequiredPhraseText);
+        });
+    }
+
+    if (maintExecuteBtn) {
+        maintExecuteBtn.addEventListener("click", async () => {
+            if (!activeMaintenanceType) return;
+
+            showToast("Procesando operación en Supabase...", "info");
+            maintExecuteBtn.disabled = true;
+
+            try {
+                if (activeMaintenanceType === "history") {
+                    if (isSupabaseConfigured) {
+                        const { error } = await supabase
+                            .from('containers')
+                            .delete()
+                            .eq('status_admin', 'presentado');
+                        if (error) throw error;
+                    }
+                    containers = containers.filter(c => c.statusAdmin !== "presentado");
+                    showToast("Historial resuelto eliminado con éxito.", "success");
+                } else if (activeMaintenanceType === "status") {
+                    if (isSupabaseConfigured) {
+                        const { error } = await supabase
+                            .from('containers')
+                            .delete()
+                            .neq('status_admin', 'presentado');
+                        if (error) throw error;
+                    }
+                    containers = containers.filter(c => c.statusAdmin === "presentado");
+                    showToast("Contenedores observados activos eliminados.", "success");
+                } else if (activeMaintenanceType === "all") {
+                    if (isSupabaseConfigured) {
+                        const { error } = await supabase
+                            .from('containers')
+                            .delete()
+                            .neq('id', 'vaciar_db_dummy_key');
+                        if (error) throw error;
+                    }
+                    containers = [];
+                    showToast("Base de datos de contenedores vaciada.", "success");
+                }
+
+                saveData();
+                window.closeMaintenanceConfirmModal();
+                updateDashboardMetrics();
+                renderMonitoringPanel();
+                renderHistoryTable();
+                if (typeof renderTallerModule === "function") renderTallerModule();
+                if (typeof window.renderDashboard === "function") window.renderDashboard();
+
+            } catch (err) {
+                console.error("Error de mantenimiento:", err);
+                showToast("Error al ejecutar mantenimiento en Supabase.", "error");
+                maintExecuteBtn.disabled = false;
+            }
         });
     }
 
