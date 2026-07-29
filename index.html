@@ -39,6 +39,18 @@
                         </button>
                     </li>
                     <li>
+                        <button class="nav-btn" data-target="modulo-taller" id="btn-modulo-taller">
+                            <i data-lucide="wrench"></i>
+                            <span>Área de Reparaciones</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="nav-btn" data-target="gestion-usuarios" id="btn-gestion-usuarios">
+                            <i data-lucide="users"></i>
+                            <span>Gestión de Cuentas</span>
+                        </button>
+                    </li>
+                    <li>
                         <button class="nav-btn" data-target="historial-contenedores" id="btn-historial-contenedores">
                             <i data-lucide="history"></i>
                             <span>Historial</span>
@@ -396,6 +408,103 @@
                     </div>
                 </section>
 
+                <!-- SECCIÓN: MÓDULO DEL ÁREA DE REPARACIONES (TALLER) -->
+                <section id="view-modulo-taller" class="app-view">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i data-lucide="wrench" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Gestión de Reparaciones en Taller</h3>
+                                <p>Control técnico de contenedores dañados, asignación de trabajos y registro de evidencias de reparación.</p>
+                            </div>
+                            <div class="monitoring-tabs" style="margin-bottom: 0;">
+                                <button class="tab-btn active" data-taller-tab="todas" onclick="switchTallerTab('todas')">
+                                    <span>Todas</span>
+                                    <span class="tab-badge" id="count-taller-todas">0</span>
+                                </button>
+                                <button class="tab-btn" data-taller-tab="pendientes" onclick="switchTallerTab('pendientes')">
+                                    <span>Por Reparar</span>
+                                    <span class="tab-badge" id="count-taller-pendientes">0</span>
+                                </button>
+                                <button class="tab-btn" data-taller-tab="en-proceso" onclick="switchTallerTab('en-proceso')">
+                                    <span>En Proceso</span>
+                                    <span class="tab-badge" id="count-taller-proceso">0</span>
+                                </button>
+                                <button class="tab-btn" data-taller-tab="listas" onclick="switchTallerTab('listas')">
+                                    <span>Resueltos</span>
+                                    <span class="tab-badge" id="count-taller-listas">0</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="search-filter-wrapper mb-3" style="display: flex; gap: 12px; align-items: center;">
+                                <div class="search-box" style="flex: 1;">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="search-taller-input" placeholder="Buscar por código de contenedor, supervisor o notas..." style="width: 100%;">
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="custom-table" id="table-taller">
+                                    <thead>
+                                        <tr>
+                                            <th>Contenedor</th>
+                                            <th>Tipo / Capacidad</th>
+                                            <th>Supervisor / Inspector</th>
+                                            <th>Fecha Reporte</th>
+                                            <th>Estado Actual</th>
+                                            <th>Evidencias</th>
+                                            <th class="actions-col">Acción Técnica</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-body-taller">
+                                        <!-- Cargado dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="table-empty-state" id="taller-empty-state" style="display: none; padding: 40px; text-align: center;">
+                                <i data-lucide="check-circle" style="width: 36px; height: 36px; color: var(--status-transit); margin-bottom: 12px;"></i>
+                                <h4>No hay solicitudes de reparación pendientes en esta categoría</h4>
+                                <p style="font-size: 13px; color: var(--text-muted);">Los contenedores reportados aparecerán aquí para la gestión del personal de taller.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECCIÓN: GESTIÓN DE USUARIOS Y ACCESOS (ADMIN) -->
+                <section id="view-gestion-usuarios" class="app-view">
+                    <div class="card shadow-sm">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i data-lucide="shield-check" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Gestión de Cuentas y Accesos</h3>
+                                <p>Administre el personal autorizado con acceso al sistema, asignación de roles y credenciales.</p>
+                            </div>
+                            <button class="btn btn-primary" id="btn-open-create-user" style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i>
+                                <span>Crear Nuevo Usuario</span>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre Completo</th>
+                                            <th>Usuario / Identificador</th>
+                                            <th>Rol Asignado</th>
+                                            <th>Estado</th>
+                                            <th>Fecha Creación</th>
+                                            <th class="actions-col">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-body-users">
+                                        <!-- Cargado dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -519,11 +628,11 @@
         </div>
     </div>
 
-    <!-- MODAL INGRESO ADMINISTRADOR -->
+    <!-- MODAL AUTENTICACIÓN Y LOGIN PROFESIONAL -->
     <div class="modal-backdrop" id="admin-login-modal" style="z-index: 220;">
-        <div class="modal-card" style="max-width: 400px;">
+        <div class="modal-card" style="max-width: 420px;">
             <div class="modal-header">
-                <h3><i data-lucide="shield-alert" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Acceso Administrador</h3>
+                <h3><i data-lucide="shield-check" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Acceso de Usuario</h3>
                 <button class="btn-close-modal" id="btn-close-admin-login">
                     <i data-lucide="x"></i>
                 </button>
@@ -531,22 +640,127 @@
             <form id="admin-login-form">
                 <div class="modal-body" style="padding: 24px 20px;">
                     <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-                        Ingrese la contraseña de administrador para acceder a las opciones de monitoreo general y edición:
+                        Ingrese sus credenciales asignadas (Administrador o Área de Reparación de Taller):
                     </p>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                        <label for="admin-username" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Usuario / Identificador *</label>
+                        <div class="input-icon-wrapper">
+                            <i data-lucide="user"></i>
+                            <input type="text" id="admin-username" placeholder="Ej: admin o taller1" required style="padding-left: 42px;">
+                        </div>
+                    </div>
                     <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
                         <label for="admin-password" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Contraseña *</label>
                         <div class="input-icon-wrapper">
                             <i data-lucide="lock"></i>
-                            <input type="password" id="admin-password" placeholder="Contraseña de Administrador" required style="padding-left: 42px;">
+                            <input type="password" id="admin-password" placeholder="Su contraseña asignada" required style="padding-left: 42px;">
                         </div>
                         <span class="error-message" id="admin-login-error" style="color: var(--status-retained); font-size: 12px; margin-top: 4px; display: none;">
-                            Contraseña incorrecta. Intente de nuevo.
+                            Usuario o contraseña incorrectos. Verifique sus datos.
                         </span>
                     </div>
                 </div>
                 <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
                     <button type="button" class="btn btn-secondary" id="btn-close-admin-login-footer">Cancelar</button>
                     <button type="submit" class="btn btn-primary" style="background-color: var(--primary); color: white;">Ingresar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR / EDITAR USUARIO (ADMIN) -->
+    <div class="modal-backdrop" id="user-form-modal" style="z-index: 230;">
+        <div class="modal-card" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3 id="user-modal-title"><i data-lucide="user-plus" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Crear Nuevo Usuario</h3>
+                <button class="btn-close-modal" id="btn-close-user-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="user-form">
+                <input type="hidden" id="editing-user-id" value="">
+                <div class="modal-body" style="padding: 24px 20px;">
+                    <div class="form-group mb-3">
+                        <label for="user-fullname" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Nombre Completo *</label>
+                        <input type="text" id="user-fullname" placeholder="Ej. Juan Pérez (Taller)" required style="width: 100%;">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="user-username" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Nombre de Usuario *</label>
+                        <input type="text" id="user-username" placeholder="Ej. jperez o taller1" required style="width: 100%;">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="user-role" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Rol del Sistema *</label>
+                        <select id="user-role" required style="width: 100%;">
+                            <option value="taller">Área de Reparación / Taller</option>
+                            <option value="admin">Administrador General de Planta</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="user-password" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Contraseña *</label>
+                        <input type="password" id="user-password" placeholder="Contraseña de acceso" required style="width: 100%;">
+                        <small style="color: var(--text-muted); font-size: 11px;">Al editar un usuario existente, deje la contraseña en blanco para no modificarla.</small>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="user-active" checked style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="user-active" style="font-size: 13px; cursor: pointer;">Usuario Activo (Permite iniciar sesión)</label>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-user-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRO DE REPARACIÓN (TALLER) -->
+    <div class="modal-backdrop" id="repair-action-modal" style="z-index: 240;">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i data-lucide="wrench" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Registro Técnico de Reparación</h3>
+                <button class="btn-close-modal" id="btn-close-repair-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="repair-action-form">
+                <input type="hidden" id="repair-report-id" value="">
+                <div class="modal-body" style="padding: 24px 20px;">
+                    <div style="background-color: var(--bg-body); padding: 12px 16px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 12px; color: var(--text-muted); display: block;">Contenedor a Reparar</span>
+                            <span id="repair-modal-container-code" style="font-size: 16px; font-weight: 700; color: var(--text-primary);">-</span>
+                        </div>
+                        <span class="badge badge-type-organicos" id="repair-modal-type-badge">Orgánicos</span>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="repair-status-select" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Nuevo Estado Técnico *</label>
+                        <select id="repair-status-select" required style="width: 100%;">
+                            <option value="en-reparacion">En proceso de reparación (Naranja)</option>
+                            <option value="listo">Reparación Finalizada / Listo (Verde)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="repair-notes-text" style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Detalle Técnico de Trabajo Realizado *</label>
+                        <textarea id="repair-notes-text" placeholder="Ej. Se cambió la rueda izquierda, soldado de bisagras y lubricado de eje." required style="width: 100%; height: 80px; resize: none; padding: 10px;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 8px;">Foto de Evidencia de Reparación (Opcional)</label>
+                        <input type="file" id="repair-photo-input" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-secondary" id="btn-trigger-repair-photo" style="display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center;">
+                            <i data-lucide="camera"></i>
+                            <span id="repair-photo-label">Tomar / Cargar Foto de Reparación</span>
+                        </button>
+                        <div id="repair-photo-preview-container" style="display: none; margin-top: 12px; text-align: center;">
+                            <img id="repair-photo-img-preview" src="" alt="Evidencia Reparación" style="max-height: 120px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" id="btn-close-repair-modal-footer">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar Reparación</button>
                 </div>
             </form>
         </div>

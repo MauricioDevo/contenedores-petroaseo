@@ -410,6 +410,14 @@ function setupNavigation() {
             title: "Status General", 
             subtitle: "Resumen ejecutivo y estadísticas de cumplimiento de SLA en planta" 
         },
+        "modulo-taller": {
+            title: "Área de Reparaciones",
+            subtitle: "Gestión técnica de mantenimiento, reparación de contenedores y evidencia"
+        },
+        "gestion-usuarios": {
+            title: "Gestión de Cuentas",
+            subtitle: "Administración de usuarios, asignación de roles y accesos al sistema"
+        },
         "historial-contenedores": { 
             title: "Historial de Contenedores", 
             subtitle: "Búsqueda, auditoría e historial de bitácoras y fotos obligatorias" 
@@ -417,8 +425,14 @@ function setupNavigation() {
     };
 
     function switchView(targetViewId) {
-        // Bloquear acceso a Status General a usuarios no-administradores
+        // Bloquear acceso a vistas privilegiadas según el rol activo
         if (currentUserRole !== "admin" && targetViewId === "status-general") {
+            targetViewId = "reporte-contenedor";
+        }
+        if (currentUserRole !== "admin" && targetViewId === "gestion-usuarios") {
+            targetViewId = "reporte-contenedor";
+        }
+        if (currentUserRole !== "admin" && currentUserRole !== "taller" && targetViewId === "modulo-taller") {
             targetViewId = "reporte-contenedor";
         }
 
@@ -453,6 +467,10 @@ function setupNavigation() {
                 mobileTitle.textContent = "REGISTRO";
             } else if (targetViewId === "status-general") {
                 mobileTitle.textContent = "ESTATUS";
+            } else if (targetViewId === "modulo-taller") {
+                mobileTitle.textContent = "TALLER";
+            } else if (targetViewId === "gestion-usuarios") {
+                mobileTitle.textContent = "USUARIOS";
             } else if (targetViewId === "historial-contenedores") {
                 mobileTitle.textContent = "HISTORIAL";
             }
@@ -467,6 +485,10 @@ function setupNavigation() {
         // Actualizar datos según la vista
         if (targetViewId === "status-general") {
             updateDashboardMetrics();
+        } else if (targetViewId === "modulo-taller") {
+            renderTallerModule();
+        } else if (targetViewId === "gestion-usuarios") {
+            renderUsersTable();
         } else if (targetViewId === "historial-contenedores") {
             renderHistoryTable();
         }
@@ -2059,49 +2081,388 @@ function showToast(message, type = "success") {
     }, 4000);
 }
 
-window.switchUserRole = function(role) {
-    currentUserRole = role;
-    localStorage.setItem("waste_user_role", role);
+// ==========================================================================
+// GESTIÓN DE USUARIOS Y AUTENTICACIÓN MULTI-ROL (ADMIN / TALLER / GUEST)
+// ==========================================================================
+
+let appUsers = [];
+let currentAuthUser = null;
+let currentTallerTab = "todas";
+let activeRepairPhotoBase64 = null;
+
+const DEFAULT_USERS = [
+    {
+        id: "usr-admin-default",
+        username: "admin",
+        fullName: "Administrador de Planta",
+        role: "admin",
+        passwordHash: "admin123",
+        isActive: true,
+        createdAt: "2026-07-01T00:00:00.000Z"
+    },
+    {
+        id: "usr-taller-default",
+        username: "taller1",
+        fullName: "Área de Reparaciones (Taller)",
+        role: "taller",
+        passwordHash: "taller123",
+        isActive: true,
+        createdAt: "2026-07-01T00:00:00.000Z"
+    }
+];
+
+async function loadAppUsers() {
+    if (isSupabaseConfigured) {
+        try {
+            const { data, error } = await supabase
+                .from('app_users')
+                .select('*');
+
+            if (!error && data && data.length > 0) {
+                appUsers = data.map(u => ({
+                    id: u.id,
+                    username: u.username,
+                    fullName: u.full_name || u.fullName,
+                    role: u.role,
+                    passwordHash: u.password_hash || u.passwordHash,
+                    isActive: u.is_active !== undefined ? u.is_active : true,
+                    createdAt: u.created_at || new Date().toISOString()
+                }));
+                localStorage.setItem("waste_app_users", JSON.stringify(appUsers));
+                return;
+            }
+        } catch (e) {
+            console.warn("Tabla app_users no disponible aún en Supabase. Usando respaldo local:", e);
+        }
+    }
+
+    try {
+        const local = localStorage.getItem("waste_app_users");
+        if (local) {
+            appUsers = JSON.parse(local);
+        } else {
+            appUsers = [...DEFAULT_USERS];
+            localStorage.setItem("waste_app_users", JSON.stringify(appUsers));
+        }
+    } catch (e) {
+        appUsers = [...DEFAULT_USERS];
+    }
+}
+
+async function saveAppUserToDB(userObj) {
+    // Guardar en array local
+    const idx = appUsers.findIndex(u => u.id === userObj.id);
+    if (idx > -1) {
+        appUsers[idx] = userObj;
+    } else {
+        appUsers.unshift(userObj);
+    }
     
+    try {
+        localStorage.setItem("waste_app_users", JSON.stringify(appUsers));
+    } catch (e) {
+        console.warn("Error al guardar usuarios en localStorage:", e);
+    }
+
+    if (isSupabaseConfigured) {
+        try {
+            await supabase.from('app_users').upsert({
+                id: userObj.id,
+                username: userObj.username,
+                full_name: userObj.fullName,
+                role: userObj.role,
+                password_hash: userObj.passwordHash,
+                is_active: userObj.isActive,
+                updated_at: new Date().toISOString()
+            });
+        } catch (e) {
+            console.warn("No se pudo sincronizar usuario con Supabase app_users:", e);
+        }
+    }
+}
+
+window.renderUsersTable = function() {
+    const tbody = document.getElementById("table-body-users");
+    if (!tbody) return;
+
+    if (appUsers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center" style="padding: 30px; color: var(--text-muted);">
+                    No hay usuarios registrados en el sistema.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = appUsers.map(u => {
+        const roleBadge = u.role === "admin"
+            ? `<span class="badge" style="background-color: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">Administrador</span>`
+            : `<span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">Taller / Reparaciones</span>`;
+
+        const statusBadge = u.isActive
+            ? `<span class="badge badge-sla-on-time">Activo</span>`
+            : `<span class="badge badge-sla-expired" style="background-color: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3);">Inactivo</span>`;
+
+        const dateFormatted = new Date(u.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+        return `
+            <tr>
+                <td style="font-weight: 600; color: var(--text-primary);">${u.fullName}</td>
+                <td style="font-family: monospace; color: var(--text-secondary);">${u.username}</td>
+                <td>${roleBadge}</td>
+                <td>${statusBadge}</td>
+                <td style="font-size: 13px; color: var(--text-muted);">${dateFormatted}</td>
+                <td class="actions-col">
+                    <div style="display:flex; justify-content:flex-end; gap:6px;">
+                        <button class="btn-icon" onclick="openEditUserModal('${u.id}')" title="Editar Usuario">
+                            <i data-lucide="edit-3"></i>
+                        </button>
+                        <button class="btn-icon" onclick="toggleUserStatus('${u.id}')" title="${u.isActive ? 'Desactivar Cuenta' : 'Activar Cuenta'}">
+                            <i data-lucide="${u.isActive ? 'user-x' : 'user-check'}"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.openCreateUserModal = function() {
+    document.getElementById("editing-user-id").value = "";
+    document.getElementById("user-fullname").value = "";
+    document.getElementById("user-username").value = "";
+    document.getElementById("user-role").value = "taller";
+    document.getElementById("user-password").value = "";
+    document.getElementById("user-password").required = true;
+    document.getElementById("user-active").checked = true;
+    document.getElementById("user-modal-title").innerHTML = `<i data-lucide="user-plus" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Crear Nuevo Usuario`;
+
+    const modal = document.getElementById("user-form-modal");
+    if (modal) modal.classList.add("open");
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.openEditUserModal = function(userId) {
+    const u = appUsers.find(user => user.id === userId);
+    if (!u) return;
+
+    document.getElementById("editing-user-id").value = u.id;
+    document.getElementById("user-fullname").value = u.fullName;
+    document.getElementById("user-username").value = u.username;
+    document.getElementById("user-role").value = u.role;
+    document.getElementById("user-password").value = "";
+    document.getElementById("user-password").required = false;
+    document.getElementById("user-active").checked = u.isActive;
+    document.getElementById("user-modal-title").innerHTML = `<i data-lucide="edit-3" style="color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>Editar Usuario (${u.username})`;
+
+    const modal = document.getElementById("user-form-modal");
+    if (modal) modal.classList.add("open");
+    if (window.lucide) window.lucide.createIcons();
+};
+
+window.toggleUserStatus = async function(userId) {
+    const u = appUsers.find(user => user.id === userId);
+    if (!u) return;
+
+    u.isActive = !u.isActive;
+    await saveAppUserToDB(u);
+    renderUsersTable();
+    showToast(`Cuenta ${u.username} ${u.isActive ? 'activada' : 'desactivada'} correctamente.`, "info");
+};
+
+// ==========================================================================
+// MÓDULO DE TALLER / ÁREA DE REPARACIONES
+// ==========================================================================
+
+window.switchTallerTab = function(tab) {
+    currentTallerTab = tab;
+    
+    const buttons = document.querySelectorAll("[data-taller-tab]");
+    buttons.forEach(btn => {
+        if (btn.getAttribute("data-taller-tab") === tab) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+
+    renderTallerModule();
+};
+
+window.renderTallerModule = function() {
+    const tbody = document.getElementById("table-body-taller");
+    const emptyState = document.getElementById("taller-empty-state");
+    const searchInput = document.getElementById("search-taller-input");
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+    if (!tbody) return;
+
+    // Conteo para las pestañas de taller
+    const countTodas = containers.length;
+    const countPendientes = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado").length;
+    const countProceso = containers.filter(c => c.statusAdmin === "en-reparacion").length;
+    const countListas = containers.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado").length;
+
+    const elTodas = document.getElementById("count-taller-todas");
+    const elPendientes = document.getElementById("count-taller-pendientes");
+    const elProceso = document.getElementById("count-taller-proceso");
+    const elListas = document.getElementById("count-taller-listas");
+
+    if (elTodas) elTodas.textContent = countTodas;
+    if (elPendientes) elPendientes.textContent = countPendientes;
+    if (elProceso) elProceso.textContent = countProceso;
+    if (elListas) elListas.textContent = countListas;
+
+    // Filtrar según pestaña seleccionada
+    let filtered = [...containers];
+    if (currentTallerTab === "pendientes") {
+        filtered = filtered.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado");
+    } else if (currentTallerTab === "en-proceso") {
+        filtered = filtered.filter(c => c.statusAdmin === "en-reparacion");
+    } else if (currentTallerTab === "listas") {
+        filtered = filtered.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado");
+    }
+
+    // Filtrar por búsqueda
+    if (query) {
+        filtered = filtered.filter(c => 
+            c.id.toLowerCase().includes(query) ||
+            c.supervisor.toLowerCase().includes(query) ||
+            c.notes.toLowerCase().includes(query)
+        );
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = "";
+        if (emptyState) emptyState.style.display = "block";
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = "none";
+
+    tbody.innerHTML = filtered.map(c => {
+        const typeMeta = TYPE_DICT[c.type] || { text: "Otro", badgeClass: "" };
+        const statusMeta = {
+            "pendiente": { text: "Por Reparar", badgeClass: "badge-sla-pending" },
+            "en-reparacion": { text: "En Reparación", badgeClass: "badge-sla-warning" },
+            "listo": { text: "Listo (Resuelto)", badgeClass: "badge-sla-on-time" },
+            "presentado": { text: "Presentado", badgeClass: "badge-sla-on-time" },
+            "no-encadenado": { text: "No Encadenado", badgeClass: "badge-sla-expired" }
+        }[c.statusAdmin] || { text: c.statusAdmin, badgeClass: "" };
+
+        const dateObj = new Date(c.reportDate + "T00:00:00");
+        const dateFormatted = dateObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+        return `
+            <tr>
+                <td style="font-weight: 700; color: var(--text-primary); font-size: 14px;">
+                    <span>${c.id}</span>
+                </td>
+                <td>
+                    <span class="badge ${typeMeta.badgeClass}">${typeMeta.text}</span>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Cap: ${c.capacity}</div>
+                </td>
+                <td>
+                    <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${c.supervisor}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${c.inspector} (Insp.)</div>
+                </td>
+                <td style="font-size: 13px; color: var(--text-secondary); font-family: monospace;">${dateFormatted}</td>
+                <td><span class="badge ${statusMeta.badgeClass}">${statusMeta.text}</span></td>
+                <td>
+                    <div class="photo-thumbnail-group">
+                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoInspector" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto Inspector">
+                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                        </div>
+                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoContainer" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto Contenedor">
+                            <i data-lucide="image" style="width: 14px; height: 14px;"></i>
+                        </div>
+                    </div>
+                </td>
+                <td class="actions-col">
+                    <button class="btn btn-primary" onclick="openRepairModal('${c.reportId}')" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i data-lucide="wrench" style="width: 14px; height: 14px;"></i>
+                        <span>Actualizar Reparación</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    if (window.lucide) window.lucide.createIcons();
+    lazyLoadTableThumbnails();
+};
+
+window.openRepairModal = function(reportId) {
+    const c = containers.find(item => item.reportId === reportId);
+    if (!c) return;
+
+    document.getElementById("repair-report-id").value = reportId;
+    document.getElementById("repair-modal-container-code").textContent = `${c.id} (${c.capacity})`;
+    
+    const typeMeta = TYPE_DICT[c.type] || { text: "Residuo", badgeClass: "" };
+    const badgeEl = document.getElementById("repair-modal-type-badge");
+    if (badgeEl) {
+        badgeEl.textContent = typeMeta.text;
+        badgeEl.className = `badge ${typeMeta.badgeClass}`;
+    }
+
+    const selectStatus = document.getElementById("repair-status-select");
+    if (selectStatus) {
+        selectStatus.value = c.statusAdmin === "listo" ? "listo" : "en-reparacion";
+    }
+
+    document.getElementById("repair-notes-text").value = "";
+    activeRepairPhotoBase64 = null;
+    
+    const imgPreviewContainer = document.getElementById("repair-photo-preview-container");
+    if (imgPreviewContainer) imgPreviewContainer.style.display = "none";
+    const photoLabel = document.getElementById("repair-photo-label");
+    if (photoLabel) photoLabel.textContent = "Tomar / Cargar Foto de Reparación";
+
+    const modal = document.getElementById("repair-action-modal");
+    if (modal) modal.classList.add("open");
+    if (window.lucide) window.lucide.createIcons();
+};
+
+// ==========================================================================
+// CONTROLADOR DE ROLES Y SESIONES
+// ==========================================================================
+
+window.switchUserRole = function(role, userObj = null) {
+    currentUserRole = role;
+    if (userObj) {
+        currentAuthUser = userObj;
+        localStorage.setItem("waste_auth_session", JSON.stringify(userObj));
+    }
+
     const authBtn = document.getElementById("btn-admin-auth");
     const authIcon = document.getElementById("admin-auth-icon");
     const authText = document.getElementById("admin-auth-text");
 
     const btnStatusGeneral = document.getElementById("btn-status-general");
-    const containerStatusGeneral = btnStatusGeneral ? btnStatusGeneral.closest("li") : null;
+    const btnModuloTaller = document.getElementById("btn-modulo-taller");
+    const btnGestionUsuarios = document.getElementById("btn-gestion-usuarios");
+
+    const liStatus = btnStatusGeneral ? btnStatusGeneral.closest("li") : null;
+    const liTaller = btnModuloTaller ? btnModuloTaller.closest("li") : null;
+    const liUsuarios = btnGestionUsuarios ? btnGestionUsuarios.closest("li") : null;
 
     const avatarEl = document.querySelector(".sidebar-footer .user-avatar");
     const nameEl = document.querySelector(".sidebar-footer .user-name");
     const roleEl = document.querySelector(".sidebar-footer .user-role");
 
-    if (role === "supervisor") {
-        if (containerStatusGeneral) containerStatusGeneral.style.display = "none";
-        
-        if (authText) authText.textContent = "Acceso Admin";
+    if (role === "admin") {
+        if (liStatus) liStatus.style.display = "block";
+        if (liTaller) liTaller.style.display = "block";
+        if (liUsuarios) liUsuarios.style.display = "block";
+
+        if (authText) authText.textContent = "Cerrar Sesión";
         if (authIcon) {
-            authIcon.setAttribute("data-lucide", "shield-alert");
-            authIcon.style.color = "var(--text-secondary)";
-        }
-        if (authBtn) {
-            authBtn.style.borderColor = "var(--border-color)";
-            authBtn.style.color = "var(--text-secondary)";
-        }
-
-        // Redirigir a reporte si estaba en la vista administrativa
-        const activeNavBtn = document.querySelector(".nav-btn.active");
-        if (activeNavBtn && activeNavBtn.getAttribute("data-target") === "status-general") {
-            triggerSwitchView("reporte-contenedor");
-        }
-
-        if (avatarEl) avatarEl.textContent = "SP";
-        if (nameEl) nameEl.textContent = "Supervisor de Turno";
-        if (roleEl) roleEl.textContent = "Control de Planta";
-    } else {
-        if (containerStatusGeneral) containerStatusGeneral.style.display = "block";
-
-        if (authText) authText.textContent = "Salir de Admin";
-        if (authIcon) {
-            authIcon.setAttribute("data-lucide", "shield-check");
+            authIcon.setAttribute("data-lucide", "log-out");
             authIcon.style.color = "var(--status-transit)";
         }
         if (authBtn) {
@@ -2110,30 +2471,98 @@ window.switchUserRole = function(role) {
         }
 
         if (avatarEl) avatarEl.textContent = "AD";
-        if (nameEl) nameEl.textContent = "Coordinador General";
+        if (nameEl) nameEl.textContent = currentAuthUser ? currentAuthUser.fullName : "Coordinador General";
         if (roleEl) roleEl.textContent = "Administrador de Planta";
+
+    } else if (role === "taller") {
+        if (liStatus) liStatus.style.display = "none";
+        if (liTaller) liTaller.style.display = "block";
+        if (liUsuarios) liUsuarios.style.display = "none";
+
+        if (authText) authText.textContent = "Cerrar Sesión";
+        if (authIcon) {
+            authIcon.setAttribute("data-lucide", "log-out");
+            authIcon.style.color = "var(--status-retained)";
+        }
+        if (authBtn) {
+            authBtn.style.borderColor = "var(--status-retained)";
+            authBtn.style.color = "var(--status-retained)";
+        }
+
+        if (avatarEl) avatarEl.textContent = "TL";
+        if (nameEl) nameEl.textContent = currentAuthUser ? currentAuthUser.fullName : "Taller de Reparaciones";
+        if (roleEl) roleEl.textContent = "Área de Mantenimiento";
+
+    } else {
+        // Rol Guest / Público / Supervisor
+        if (liStatus) liStatus.style.display = "none";
+        if (liTaller) liTaller.style.display = "none";
+        if (liUsuarios) liUsuarios.style.display = "none";
+
+        if (authText) authText.textContent = "Acceso de Usuario";
+        if (authIcon) {
+            authIcon.setAttribute("data-lucide", "shield-check");
+            authIcon.style.color = "var(--text-secondary)";
+        }
+        if (authBtn) {
+            authBtn.style.borderColor = "var(--border-color)";
+            authBtn.style.color = "var(--text-secondary)";
+        }
+
+        if (avatarEl) avatarEl.textContent = "SP";
+        if (nameEl) nameEl.textContent = "Supervisor de Turno";
+        if (roleEl) roleEl.textContent = "Control de Planta";
+
+        // Si estaba en una vista privilegiada, devolverlo a reporte
+        const activeNavBtn = document.querySelector(".nav-btn.active");
+        if (activeNavBtn) {
+            const target = activeNavBtn.getAttribute("data-target");
+            if (target === "status-general" || target === "gestion-usuarios" || target === "modulo-taller") {
+                triggerSwitchView("reporte-contenedor");
+            }
+        }
     }
-    
-    if (window.lucide) {
-        window.lucide.createIcons();
-    }
-    
+
+    if (window.lucide) window.lucide.createIcons();
     renderHistoryTable();
 };
 
+function logoutUser() {
+    currentAuthUser = null;
+    localStorage.removeItem("waste_auth_session");
+    switchUserRole("supervisor");
+    showToast("Sesión cerrada correctamente.", "info");
+}
+
 // ==========================================================================
-// INICIALIZACIÓN
+// INICIALIZACIÓN DE LA APLICACIÓN
 // ==========================================================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     loadData();
+    await loadAppUsers();
     initClock();
     setupBatchFormEvents();
     initBatch();
     
-    // Iniciar con el rol guardado (por defecto Supervisor)
-    const savedRole = localStorage.getItem("waste_user_role") || "supervisor";
-    switchUserRole(savedRole);
+    // Verificar sesión guardada
+    try {
+        const savedSession = localStorage.getItem("waste_auth_session");
+        if (savedSession) {
+            const parsed = JSON.parse(savedSession);
+            const validUser = appUsers.find(u => u.username === parsed.username && u.isActive);
+            if (validUser) {
+                currentAuthUser = validUser;
+                switchUserRole(validUser.role, validUser);
+            } else {
+                switchUserRole("supervisor");
+            }
+        } else {
+            switchUserRole("supervisor");
+        }
+    } catch (e) {
+        switchUserRole("supervisor");
+    }
     
     // Configurar modal de WhatsApp (Copiar y Cerrar)
     const btnCopyWa = document.getElementById("btn-copy-whatsapp");
@@ -2173,21 +2602,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Configuración de Autenticación de Administrador
+    // Configuración de Autenticación General (Login Modal)
     const btnAdminAuth = document.getElementById("btn-admin-auth");
     if (btnAdminAuth) {
         btnAdminAuth.addEventListener("click", () => {
-            if (currentUserRole === "admin") {
-                switchUserRole("supervisor");
-                showToast("Sesión de administrador cerrada.", "info");
+            if (currentUserRole === "admin" || currentUserRole === "taller") {
+                logoutUser();
             } else {
                 const modal = document.getElementById("admin-login-modal");
                 const errorMsg = document.getElementById("admin-login-error");
+                const userInput = document.getElementById("admin-username");
                 const pwdInput = document.getElementById("admin-password");
                 if (errorMsg) errorMsg.style.display = "none";
+                if (userInput) userInput.value = "";
                 if (pwdInput) pwdInput.value = "";
                 if (modal) modal.classList.add("open");
-                if (pwdInput) pwdInput.focus();
+                if (userInput) userInput.focus();
             }
         });
     }
@@ -2213,21 +2643,184 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formAdminLogin) {
         formAdminLogin.addEventListener("submit", (e) => {
             e.preventDefault();
+            const userInput = document.getElementById("admin-username");
             const pwdInput = document.getElementById("admin-password");
             const errorMsg = document.getElementById("admin-login-error");
-            const pwd = pwdInput ? pwdInput.value : "";
 
-            if (pwd === "admin123" || pwd === "petroaseo2026") {
-                switchUserRole("admin");
+            const usernameVal = userInput ? userInput.value.trim().toLowerCase() : "";
+            const pwdVal = pwdInput ? pwdInput.value : "";
+
+            const foundUser = appUsers.find(u => u.username.toLowerCase() === usernameVal && u.passwordHash === pwdVal && u.isActive);
+
+            if (foundUser) {
+                switchUserRole(foundUser.role, foundUser);
                 closeAdminModal();
-                showToast("Sesión de administrador iniciada.", "success");
+                showToast(`Bienvenido ${foundUser.fullName}. Sesión iniciada como ${foundUser.role === 'admin' ? 'Administrador' : 'Área de Reparaciones'}.`, "success");
+                if (foundUser.role === "admin") {
+                    triggerSwitchView("status-general");
+                } else if (foundUser.role === "taller") {
+                    triggerSwitchView("modulo-taller");
+                }
             } else {
                 if (errorMsg) errorMsg.style.display = "block";
-                if (pwdInput) {
-                    pwdInput.value = "";
-                    pwdInput.focus();
-                }
             }
+        });
+    }
+
+    // Modal Crear / Editar Usuario (Admin)
+    const btnOpenCreateUser = document.getElementById("btn-open-create-user");
+    if (btnOpenCreateUser) {
+        btnOpenCreateUser.addEventListener("click", () => {
+            openCreateUserModal();
+        });
+    }
+
+    const closeUserModal = () => {
+        const modal = document.getElementById("user-form-modal");
+        if (modal) modal.classList.remove("open");
+    };
+
+    const btnCloseUserModal = document.getElementById("btn-close-user-modal");
+    const btnCancelUserModal = document.getElementById("btn-cancel-user-modal");
+    const userModalEl = document.getElementById("user-form-modal");
+
+    if (btnCloseUserModal) btnCloseUserModal.addEventListener("click", closeUserModal);
+    if (btnCancelUserModal) btnCancelUserModal.addEventListener("click", closeUserModal);
+    if (userModalEl) {
+        userModalEl.addEventListener("click", (e) => {
+            if (e.target.id === "user-form-modal") closeUserModal();
+        });
+    }
+
+    const formUser = document.getElementById("user-form");
+    if (formUser) {
+        formUser.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const editId = document.getElementById("editing-user-id").value;
+            const fullName = document.getElementById("user-fullname").value.trim();
+            const username = document.getElementById("user-username").value.trim().toLowerCase();
+            const role = document.getElementById("user-role").value;
+            const password = document.getElementById("user-password").value;
+            const isActive = document.getElementById("user-active").checked;
+
+            if (editId) {
+                // Editar usuario existente
+                const existing = appUsers.find(u => u.id === editId);
+                if (existing) {
+                    existing.fullName = fullName;
+                    existing.username = username;
+                    existing.role = role;
+                    existing.isActive = isActive;
+                    if (password) existing.passwordHash = password;
+
+                    await saveAppUserToDB(existing);
+                    showToast(`Usuario ${username} actualizado correctamente.`, "success");
+                }
+            } else {
+                // Verificar duplicados
+                if (appUsers.some(u => u.username.toLowerCase() === username)) {
+                    showToast("El nombre de usuario ya existe. Elija otro.", "error");
+                    return;
+                }
+
+                const newUser = {
+                    id: "usr-" + generateUUID(),
+                    username: username,
+                    fullName: fullName,
+                    role: role,
+                    passwordHash: password,
+                    isActive: isActive,
+                    createdAt: new Date().toISOString()
+                };
+
+                await saveAppUserToDB(newUser);
+                showToast(`Usuario ${username} creado exitosamente.`, "success");
+            }
+
+            closeUserModal();
+            renderUsersTable();
+        });
+    }
+
+    // Modal de Reparaciones (Taller)
+    const closeRepairModal = () => {
+        const modal = document.getElementById("repair-action-modal");
+        if (modal) modal.classList.remove("open");
+    };
+
+    const btnCloseRepair = document.getElementById("btn-close-repair-modal");
+    const btnCloseRepairFooter = document.getElementById("btn-close-repair-modal-footer");
+    const repairModalEl = document.getElementById("repair-action-modal");
+
+    if (btnCloseRepair) btnCloseRepair.addEventListener("click", closeRepairModal);
+    if (btnCloseRepairFooter) btnCloseRepairFooter.addEventListener("click", closeRepairModal);
+    if (repairModalEl) {
+        repairModalEl.addEventListener("click", (e) => {
+            if (e.target.id === "repair-action-modal") closeRepairModal();
+        });
+    }
+
+    // Cargar Foto en Reparación
+    const btnTriggerRepairPhoto = document.getElementById("btn-trigger-repair-photo");
+    const inputRepairPhoto = document.getElementById("repair-photo-input");
+    if (btnTriggerRepairPhoto && inputRepairPhoto) {
+        btnTriggerRepairPhoto.addEventListener("click", () => inputRepairPhoto.click());
+        inputRepairPhoto.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const base64 = await compressImage(file);
+                activeRepairPhotoBase64 = base64;
+                const imgPreview = document.getElementById("repair-photo-img-preview");
+                const previewContainer = document.getElementById("repair-photo-preview-container");
+                const photoLabel = document.getElementById("repair-photo-label");
+
+                if (imgPreview && previewContainer) {
+                    imgPreview.src = base64;
+                    previewContainer.style.display = "block";
+                }
+                if (photoLabel) photoLabel.textContent = "Foto Adjunta ✓ (Cambiar)";
+            }
+        });
+    }
+
+    // Formulario Guardar Reparación
+    const formRepairAction = document.getElementById("repair-action-form");
+    if (formRepairAction) {
+        formRepairAction.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const reportId = document.getElementById("repair-report-id").value;
+            const newStatus = document.getElementById("repair-status-select").value;
+            const notes = document.getElementById("repair-notes-text").value.trim();
+
+            const idx = containers.findIndex(c => c.reportId === reportId);
+            if (idx > -1) {
+                containers[idx].statusAdmin = newStatus;
+                if (activeRepairPhotoBase64) {
+                    containers[idx].photoContainer = activeRepairPhotoBase64;
+                }
+
+                const timestamp = new Date().toISOString();
+                const userName = currentAuthUser ? currentAuthUser.fullName : "Área de Reparaciones";
+                containers[idx].history.push({
+                    timestamp: timestamp,
+                    status: newStatus,
+                    notes: `Trabajo técnico finalizado en Taller por [${userName}]: ${notes}`
+                });
+
+                saveData();
+                closeRepairModal();
+                renderTallerModule();
+                updateDashboardMetrics();
+                showToast(`Reparación registrada para contenedor ${containers[idx].id}.`, "success");
+            }
+        });
+    }
+
+    // Búsqueda en vivo en Taller
+    const searchTallerInput = document.getElementById("search-taller-input");
+    if (searchTallerInput) {
+        searchTallerInput.addEventListener("input", () => {
+            renderTallerModule();
         });
     }
 
