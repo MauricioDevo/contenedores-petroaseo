@@ -1796,6 +1796,11 @@ function renderHistoryTable(filteredList = null) {
                         <button class="btn-icon" onclick="openDetailsModal('${c.reportId}')" title="Ver Detalles y Fotos">
                             <i data-lucide="eye"></i>
                         </button>
+                        ${c.statusAdmin !== "presentado" ? `
+                        <button class="btn-icon" onclick="markAsPresentado('${c.reportId}')" title="Marcar como Presentado (Supervisor)" style="color: var(--status-transit); border-color: rgba(34, 197, 94, 0.3);">
+                            <i data-lucide="check-circle-2"></i>
+                        </button>
+                        ` : ''}
                     </div>
                 </td>
             </tr>
@@ -1804,6 +1809,27 @@ function renderHistoryTable(filteredList = null) {
     
     lucide.createIcons();
 }
+
+window.markAsPresentado = function(reportId) {
+    const container = containers.find(c => c.reportId === reportId);
+    if (!container) return;
+
+    if (confirm(`¿Desea marcar el contenedor ${container.id} como PRESENTADO (Resuelto por Supervisor)?`)) {
+        container.statusAdmin = "presentado";
+        const timestamp = new Date().toISOString();
+        const userName = currentAuthUser ? currentAuthUser.fullName : "Supervisor";
+        container.history.push({
+            timestamp: timestamp,
+            status: "presentado",
+            notes: `Contenedor presentado en poza por ${userName}.`
+        });
+        saveData();
+        renderHistoryTable();
+        updateDashboardMetrics();
+        if (typeof renderTallerModule === "function") renderTallerModule();
+        showToast(`Contenedor ${container.id} marcado como Presentado.`, "success");
+    }
+};
 
 function filterHistory() {
     const searchVal = searchInput.value.toLowerCase().trim();
@@ -2811,7 +2837,36 @@ document.addEventListener("DOMContentLoaded", async () => {
                 closeRepairModal();
                 renderTallerModule();
                 updateDashboardMetrics();
-                showToast(`Reparación registrada para contenedor ${containers[idx].id}.`, "success");
+
+                // Compilar reporte formateado para WhatsApp de Taller
+                const c = containers[idx];
+                const typeMeta = TYPE_DICT[c.type] || { text: "Residuo" };
+                const statusLabel = newStatus === "listo" ? "Listo (Reparación Finalizada)" : "En Proceso de Reparación";
+                const dateFormatted = new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+                const waText = `🛠️ *REPORTE DE REPARACIÓN Y MANTENIMIENTO - TALLER*
+
+📦 *Contenedor:* ${c.id}
+• Tipo: ${typeMeta.text}
+• Capacidad: ${c.capacity}
+• Estado Técnico: ${statusLabel}
+• Técnico Responsable: ${userName}
+• Detalles de Trabajo: ${notes}
+• Fecha de Trabajo: ${dateFormatted}
+
+*Petroaseo S.A. - Área de Mantenimiento y Taller*`;
+
+                const waTextArea = document.getElementById("whatsapp-text-area");
+                if (waTextArea) {
+                    waTextArea.value = waText.trim();
+                }
+
+                const waModal = document.getElementById("whatsapp-modal");
+                if (waModal) {
+                    waModal.classList.add("open");
+                }
+
+                showToast(`Reparación registrada para contenedor ${c.id}. Copie el reporte para WhatsApp.`, "success");
             }
         });
     }
