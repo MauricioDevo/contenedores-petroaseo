@@ -2626,6 +2626,12 @@ function logoutUser() {
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // Forzar la eliminación de la barra de pestañas vieja de Status General en el DOM (protección de cache de HTML)
+    const oldStatusTabs = document.querySelector("#view-status-general .monitoring-tabs");
+    if (oldStatusTabs) {
+        oldStatusTabs.remove();
+    }
+
     loadData();
     await loadAppUsers();
     initClock();
