@@ -2352,12 +2352,12 @@ window.switchTallerTab = function(tab) {
 };
 
 window.renderTallerModule = function() {
-    const tbody = document.getElementById("table-body-taller");
+    const cardsContainer = document.getElementById("taller-cards-container");
     const emptyState = document.getElementById("taller-empty-state");
     const searchInput = document.getElementById("search-taller-input");
     const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
 
-    if (!tbody) return;
+    if (!cardsContainer) return;
 
     // Conteo para las pestañas de taller
     const pendingContainers = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado");
@@ -2382,7 +2382,6 @@ window.renderTallerModule = function() {
     // Filtrar según pestaña seleccionada
     let filtered = [];
     if (currentTallerTab === "pendientes") {
-        // Por Reparar: Muestra contenedores activos que requieren atención
         filtered = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado" || c.statusAdmin === "en-reparacion");
     } else if (currentTallerTab === "urgentes") {
         filtered = urgentContainers;
@@ -2414,14 +2413,14 @@ window.renderTallerModule = function() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = "";
+        cardsContainer.innerHTML = "";
         if (emptyState) emptyState.style.display = "block";
         return;
     }
 
     if (emptyState) emptyState.style.display = "none";
 
-    tbody.innerHTML = filtered.map(c => {
+    cardsContainer.innerHTML = filtered.map(c => {
         const typeMeta = TYPE_DICT[c.type] || { text: "Otro", badgeClass: "" };
         const sla = getSlaInfo(c.reportDate);
         const statusMeta = {
@@ -2436,46 +2435,77 @@ window.renderTallerModule = function() {
         const dateFormatted = dateObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 
         const isUrgent = (sla.daysLeft <= 1 && c.statusAdmin !== "listo" && c.statusAdmin !== "presentado");
-        const urgentBadge = isUrgent ? `<span class="badge badge-sla-expired" style="font-size: 10px; padding: 2px 6px; margin-left: 6px; animation: pulse-retained 1.5s infinite;">🔥 URGENTE (${sla.text})</span>` : "";
+        const urgentBadge = isUrgent ? `<span class="badge badge-sla-expired" style="font-size: 10px; padding: 2px 6px; animation: pulse-retained 1.5s infinite;">🔥 URGENTE (${sla.text})</span>` : "";
+
+        // Determinación de la clase de acento para la tarjeta
+        let accentClass = "accent-status-pending";
+        if (isUrgent) {
+            accentClass = "accent-priority-urgent";
+        } else if (c.statusAdmin === "en-reparacion") {
+            accentClass = "accent-status-repairing";
+        } else if (c.statusAdmin === "listo" || c.statusAdmin === "presentado") {
+            accentClass = "accent-status-resolved";
+        }
 
         return `
-            <tr>
-                <td style="font-weight: 700; color: var(--text-primary); font-size: 14px;">
-                    <span>${c.id}</span>
-                    ${urgentBadge}
-                </td>
-                <td>
-                    <span class="badge ${typeMeta.badgeClass}">${typeMeta.text}</span>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Cap: ${c.capacity}</div>
-                </td>
-                <td>
-                    <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${c.supervisor}</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">${c.inspector} (Insp.)</div>
-                </td>
-                <td style="font-size: 13px; color: var(--text-secondary); font-family: monospace;">${dateFormatted}</td>
-                <td><span class="badge ${statusMeta.badgeClass}">${statusMeta.text}</span></td>
-                <td>
-                    <div class="photo-thumbnail-group">
-                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoInspector" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto Inspector">
-                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+            <div class="taller-card ${accentClass}">
+                <div class="taller-card-inner">
+                    <div class="taller-card-header">
+                        <div class="card-id-wrapper">
+                            <span class="card-id">${c.id}</span>
+                            ${urgentBadge}
                         </div>
-                        <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoContainer" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto Contenedor">
-                            <i data-lucide="image" style="width: 14px; height: 14px;"></i>
+                        <div class="card-type-wrapper">
+                            <span class="badge ${typeMeta.badgeClass}">${typeMeta.text}</span>
                         </div>
                     </div>
-                </td>
-                <td class="actions-col" style="text-align: right;">
-                    <div style="display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
-                        <button class="btn-icon" onclick="openDetailsModal('${c.reportId}')" title="Ver Historial y Bitácora Completa">
-                            <i data-lucide="eye"></i>
-                        </button>
-                        <button class="btn btn-primary" onclick="openRepairModal('${c.reportId}')" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; background-color: var(--primary);">
-                            <i data-lucide="wrench" style="width: 14px; height: 14px;"></i>
-                            <span>Reparar</span>
-                        </button>
+                    
+                    <div class="taller-card-body">
+                        <div class="taller-card-info-row">
+                            <span class="info-label"><i data-lucide="package" style="width: 14px; height: 14px;"></i> Capacidad:</span>
+                            <span class="info-value">${c.capacity}</span>
+                        </div>
+                        <div class="taller-card-info-row">
+                            <span class="info-label"><i data-lucide="user" style="width: 14px; height: 14px;"></i> Supervisor:</span>
+                            <span class="info-value" style="font-weight: 600;">${c.supervisor}</span>
+                        </div>
+                        <div class="taller-card-info-row">
+                            <span class="info-label"><i data-lucide="user-check" style="width: 14px; height: 14px;"></i> Inspector:</span>
+                            <span class="info-value">${c.inspector}</span>
+                        </div>
+                        <div class="taller-card-info-row">
+                            <span class="info-label"><i data-lucide="calendar" style="width: 14px; height: 14px;"></i> Reportado:</span>
+                            <span class="info-value font-mono">${dateFormatted}</span>
+                        </div>
+                        <div class="taller-card-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                            <span class="info-label">Estado Actual:</span>
+                            <span class="badge ${statusMeta.badgeClass}">${statusMeta.text}</span>
+                        </div>
                     </div>
-                </td>
-            </tr>
+
+                    <div class="taller-card-footer">
+                        <div class="taller-card-evidences">
+                            <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoInspector" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto Inspector">
+                                <i data-lucide="user" style="width: 13px; height: 13px;"></i>
+                                <span>Insp.</span>
+                            </div>
+                            <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoContainer" onclick="openLightboxOnDemand('${c.reportId}', 'photoContainer')" title="Ver Foto Contenedor">
+                                <i data-lucide="wrench" style="width: 13px; height: 13px;"></i>
+                                <span>Taller</span>
+                            </div>
+                        </div>
+                        <div class="taller-card-actions">
+                            <button class="btn-icon" onclick="openDetailsModal('${c.reportId}')" title="Ver Historial y Bitácora Completa">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="openRepairModal('${c.reportId}')" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; background-color: var(--primary);">
+                                <i data-lucide="wrench" style="width: 13px; height: 13px;"></i>
+                                <span>Reparar</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
     }).join("");
 
