@@ -426,9 +426,6 @@ function setupNavigation() {
 
     function switchView(targetViewId) {
         // Bloquear acceso a vistas privilegiadas según el rol activo
-        if (currentUserRole !== "admin" && targetViewId === "status-general") {
-            targetViewId = "reporte-contenedor";
-        }
         if (currentUserRole !== "admin" && targetViewId === "gestion-usuarios") {
             targetViewId = "reporte-contenedor";
         }
@@ -1116,6 +1113,7 @@ function renderMonitoringPanel() {
                     </div>
                 </td>
                 <td class="status-cell-bg val-${currentStatusVal}">
+                    ${currentUserRole === "admin" ? `
                     <div class="status-select-wrapper">
                         <select class="status-select val-${currentStatusVal}" onchange="changeContainerAdminStatus('${c.reportId}', this.value)">
                             <option value="pendiente" ${currentStatusVal === "pendiente" ? "selected" : ""}>1. Reportado (Blanco)</option>
@@ -1125,6 +1123,29 @@ function renderMonitoringPanel() {
                             <option value="no-encadenado" ${currentStatusVal === "no-encadenado" ? "selected" : ""}>Alerta: No Encadenado (Rojo)</option>
                         </select>
                     </div>
+                    ` : `
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
+                        <span class="badge ${
+                            currentStatusVal === 'pendiente' ? 'badge-sla-pending' :
+                            currentStatusVal === 'en-reparacion' ? 'badge-sla-warning' :
+                            currentStatusVal === 'listo' ? 'badge-sla-on-time' :
+                            currentStatusVal === 'presentado' ? 'badge-sla-on-time' : 'badge-sla-expired'
+                        }">
+                            ${
+                                currentStatusVal === 'pendiente' ? '1. Reportado' :
+                                currentStatusVal === 'en-reparacion' ? '2. En Reparación' :
+                                currentStatusVal === 'listo' ? '3. Reparado' :
+                                currentStatusVal === 'presentado' ? '4. Presentado (Culminado)' : 'No Encadenado'
+                            }
+                        </span>
+                        ${currentStatusVal !== "presentado" ? `
+                        <button class="btn btn-secondary" onclick="markAsPresentado('${c.reportId}')" style="padding: 4px 8px; font-size: 11px; color: var(--status-transit); border-color: rgba(34, 197, 94, 0.4); display: inline-flex; align-items: center; gap: 4px; border-radius: 6px;" title="Marcar como Presentado en Poza">
+                            <i data-lucide="check-circle-2" style="width: 13px; height: 13px;"></i>
+                            <span>Marcar Presentado</span>
+                        </button>
+                        ` : ''}
+                    </div>
+                    `}
                 </td>
             </tr>
         `;
@@ -2566,7 +2587,7 @@ window.switchUserRole = function(role, userObj = null) {
 
     } else {
         // Rol Guest / Público / Supervisor
-        if (liStatus) liStatus.style.display = "none";
+        if (liStatus) liStatus.style.display = "block";
         if (liTaller) liTaller.style.display = "none";
         if (liUsuarios) liUsuarios.style.display = "none";
 
@@ -2584,11 +2605,11 @@ window.switchUserRole = function(role, userObj = null) {
         if (nameEl) nameEl.textContent = "Supervisor de Turno";
         if (roleEl) roleEl.textContent = "Control de Planta";
 
-        // Si estaba en una vista privilegiada, devolverlo a reporte
+        // Si estaba en una vista privilegiada (como taller o usuarios), devolverlo a reporte
         const activeNavBtn = document.querySelector(".nav-btn.active");
         if (activeNavBtn) {
             const target = activeNavBtn.getAttribute("data-target");
-            if (target === "status-general" || target === "gestion-usuarios" || target === "modulo-taller") {
+            if (target === "gestion-usuarios" || target === "modulo-taller") {
                 triggerSwitchView("reporte-contenedor");
             }
         }
