@@ -2328,29 +2328,36 @@ window.renderTallerModule = function() {
     if (!tbody) return;
 
     // Conteo para las pestañas de taller
-    const countTodas = containers.length;
-    const countPendientes = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado").length;
-    const countProceso = containers.filter(c => c.statusAdmin === "en-reparacion").length;
-    const countListas = containers.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado").length;
+    const pendingContainers = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado");
+    const procesoContainers = containers.filter(c => c.statusAdmin === "en-reparacion");
+    const urgentContainers = containers.filter(c => {
+        if (c.statusAdmin === "listo" || c.statusAdmin === "presentado") return false;
+        const sla = getSlaInfo(c.reportDate);
+        return sla.daysLeft <= 1 || sla.key === "expired";
+    });
+    const finishedContainers = containers.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado");
 
-    const elTodas = document.getElementById("count-taller-todas");
     const elPendientes = document.getElementById("count-taller-pendientes");
+    const elUrgentes = document.getElementById("count-taller-urgentes");
     const elProceso = document.getElementById("count-taller-proceso");
-    const elListas = document.getElementById("count-taller-listas");
+    const elFinalizadas = document.getElementById("count-taller-finalizadas");
 
-    if (elTodas) elTodas.textContent = countTodas;
-    if (elPendientes) elPendientes.textContent = countPendientes;
-    if (elProceso) elProceso.textContent = countProceso;
-    if (elListas) elListas.textContent = countListas;
+    if (elPendientes) elPendientes.textContent = pendingContainers.length;
+    if (elUrgentes) elUrgentes.textContent = urgentContainers.length;
+    if (elProceso) elProceso.textContent = procesoContainers.length;
+    if (elFinalizadas) elFinalizadas.textContent = finishedContainers.length;
 
     // Filtrar según pestaña seleccionada
-    let filtered = [...containers];
+    let filtered = [];
     if (currentTallerTab === "pendientes") {
-        filtered = filtered.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado");
+        // Por Reparar: Muestra contenedores activos que requieren atención
+        filtered = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "no-encadenado" || c.statusAdmin === "en-reparacion");
+    } else if (currentTallerTab === "urgentes") {
+        filtered = urgentContainers;
     } else if (currentTallerTab === "en-proceso") {
-        filtered = filtered.filter(c => c.statusAdmin === "en-reparacion");
-    } else if (currentTallerTab === "listas") {
-        filtered = filtered.filter(c => c.statusAdmin === "listo" || c.statusAdmin === "presentado");
+        filtered = procesoContainers;
+    } else if (currentTallerTab === "finalizadas") {
+        filtered = finishedContainers;
     }
 
     // Filtrar por búsqueda
@@ -2362,6 +2369,18 @@ window.renderTallerModule = function() {
         );
     }
 
+    // Ordenar por prioridad (1. Urgencia SLA / Vencido, 2. En reparación, 3. Por Reparar, 4. Fecha más reciente)
+    filtered.sort((a, b) => {
+        const slaA = getSlaInfo(a.reportDate);
+        const slaB = getSlaInfo(b.reportDate);
+        
+        const rankA = (slaA.daysLeft <= 1 || slaA.key === 'expired') ? 1 : (a.statusAdmin === 'en-reparacion' ? 2 : 3);
+        const rankB = (slaB.daysLeft <= 1 || slaB.key === 'expired') ? 1 : (b.statusAdmin === 'en-reparacion' ? 2 : 3);
+        
+        if (rankA !== rankB) return rankA - rankB;
+        return new Date(b.reportDate) - new Date(a.reportDate);
+    });
+
     if (filtered.length === 0) {
         tbody.innerHTML = "";
         if (emptyState) emptyState.style.display = "block";
@@ -2372,6 +2391,7 @@ window.renderTallerModule = function() {
 
     tbody.innerHTML = filtered.map(c => {
         const typeMeta = TYPE_DICT[c.type] || { text: "Otro", badgeClass: "" };
+        const sla = getSlaInfo(c.reportDate);
         const statusMeta = {
             "pendiente": { text: "1. Reportado", badgeClass: "badge-sla-pending" },
             "en-reparacion": { text: "2. En Reparación", badgeClass: "badge-sla-warning" },
@@ -2383,10 +2403,14 @@ window.renderTallerModule = function() {
         const dateObj = new Date(c.reportDate + "T00:00:00");
         const dateFormatted = dateObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 
+        const isUrgent = (sla.daysLeft <= 1 && c.statusAdmin !== "listo" && c.statusAdmin !== "presentado");
+        const urgentBadge = isUrgent ? `<span class="badge badge-sla-expired" style="font-size: 10px; padding: 2px 6px; margin-left: 6px; animation: pulse-retained 1.5s infinite;">🔥 URGENTE (${sla.text})</span>` : "";
+
         return `
             <tr>
                 <td style="font-weight: 700; color: var(--text-primary); font-size: 14px;">
                     <span>${c.id}</span>
+                    ${urgentBadge}
                 </td>
                 <td>
                     <span class="badge ${typeMeta.badgeClass}">${typeMeta.text}</span>
@@ -2408,11 +2432,16 @@ window.renderTallerModule = function() {
                         </div>
                     </div>
                 </td>
-                <td class="actions-col">
-                    <button class="btn btn-primary" onclick="openRepairModal('${c.reportId}')" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
-                        <i data-lucide="wrench" style="width: 14px; height: 14px;"></i>
-                        <span>Actualizar Reparación</span>
-                    </button>
+                <td class="actions-col" style="text-align: right;">
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
+                        <button class="btn-icon" onclick="openDetailsModal('${c.reportId}')" title="Ver Historial y Bitácora Completa">
+                            <i data-lucide="eye"></i>
+                        </button>
+                        <button class="btn btn-primary" onclick="openRepairModal('${c.reportId}')" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; background-color: var(--primary);">
+                            <i data-lucide="wrench" style="width: 14px; height: 14px;"></i>
+                            <span>Reparar</span>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;

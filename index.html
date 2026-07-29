@@ -417,21 +417,21 @@
                                 <p>Control técnico de contenedores dañados, asignación de trabajos y registro de evidencias de reparación.</p>
                             </div>
                             <div class="monitoring-tabs" style="margin-bottom: 0;">
-                                <button class="tab-btn active" data-taller-tab="todas" onclick="switchTallerTab('todas')">
-                                    <span>Todas</span>
-                                    <span class="tab-badge" id="count-taller-todas">0</span>
-                                </button>
-                                <button class="tab-btn" data-taller-tab="pendientes" onclick="switchTallerTab('pendientes')">
+                                <button class="tab-btn active" data-taller-tab="pendientes" onclick="switchTallerTab('pendientes')">
                                     <span>Por Reparar</span>
                                     <span class="tab-badge" id="count-taller-pendientes">0</span>
                                 </button>
+                                <button class="tab-btn" data-taller-tab="urgentes" onclick="switchTallerTab('urgentes')">
+                                    <span>🔥 Prioridad / SLA</span>
+                                    <span class="tab-badge" id="count-taller-urgentes" style="background-color: var(--status-retained); color: white;">0</span>
+                                </button>
                                 <button class="tab-btn" data-taller-tab="en-proceso" onclick="switchTallerTab('en-proceso')">
-                                    <span>En Proceso</span>
+                                    <span>En Reparación</span>
                                     <span class="tab-badge" id="count-taller-proceso">0</span>
                                 </button>
-                                <button class="tab-btn" data-taller-tab="listas" onclick="switchTallerTab('listas')">
-                                    <span>Resueltos</span>
-                                    <span class="tab-badge" id="count-taller-listas">0</span>
+                                <button class="tab-btn" data-taller-tab="finalizadas" onclick="switchTallerTab('finalizadas')">
+                                    <span>Reparaciones Finalizadas</span>
+                                    <span class="tab-badge" id="count-taller-finalizadas">0</span>
                                 </button>
                             </div>
                         </div>
@@ -447,17 +447,17 @@
                                 <table class="custom-table" id="table-taller">
                                     <thead>
                                         <tr>
-                                            <th>Contenedor</th>
+                                            <th>Contenedor / Prioridad</th>
                                             <th>Tipo / Capacidad</th>
                                             <th>Supervisor / Inspector</th>
                                             <th>Fecha Reporte</th>
                                             <th>Estado Actual</th>
                                             <th>Evidencias</th>
-                                            <th class="actions-col">Acción Técnica</th>
+                                            <th class="actions-col" style="text-align: right;">Acciones de Taller</th>
                                         </tr>
                                     </thead>
                                     <tbody id="table-body-taller">
-                                        <!-- Cargado dinámicamente -->
+                                        <!-- Cargado dinámicamente por JS -->
                                     </tbody>
                                 </table>
                             </div>
