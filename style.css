@@ -2940,6 +2940,11 @@ button, input, select, textarea {
     color: #f97316;
     border: 1px solid rgba(249, 115, 22, 0.3);
 }
+
+/* Ocultar pestañas en Status General */
+#view-status-general .monitoring-tabs {
+    display: none !important;
+}
     
     .badge {
         border: 1px solid #777 !important;
