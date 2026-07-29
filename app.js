@@ -1537,11 +1537,10 @@ reportForm.addEventListener("submit", async (e) => {
         });
         editingReportId = null;
 
-        // GUARDADO GARANTIZADO EN SUPABASE Y LOCALSTORAGE ANTES DE MOSTRAR WHATSAPP
-        showToast("Guardando reporte en la base de datos...", "info");
-        await saveData();
+        // 1. Guardar localmente de inmediato y enviar sincronización a Supabase en segundo plano
+        saveData().catch(err => console.error("Error al guardar en Supabase:", err));
         
-        // 1. Compilar Reporte para WhatsApp
+        // 2. Compilar Reporte para WhatsApp
         const dateObj = new Date(reportDate + "T00:00:00");
         const dateFormatted = dateObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
         const sla = getSlaInfo(reportDate);
