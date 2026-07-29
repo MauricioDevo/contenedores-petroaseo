@@ -977,17 +977,8 @@ function renderMonitoringPanel() {
     const monitoringBody = document.getElementById("monitoring-table-body");
     if (!monitoringBody) return;
 
-    // 1. Filtrar lista por la pestaña seleccionada
-    let filtered = [];
-    if (currentMonitoringTab === "observados") {
-        filtered = containers.filter(c => c.statusAdmin === "pendiente" || c.statusAdmin === "en-reparacion" || c.statusAdmin === "no-encadenado");
-    } else if (currentMonitoringTab === "presentados") {
-        filtered = containers.filter(c => c.statusAdmin === "presentado");
-    } else if (currentMonitoringTab === "listos") {
-        filtered = containers.filter(c => c.statusAdmin === "listo");
-    } else {
-        filtered = containers; // todos
-    }
+    // 1. En Status General, solo se muestran los contenedores observados en proceso activo (excluye presentados/culminados)
+    let filtered = containers.filter(c => c.statusAdmin !== "presentado");
 
     // Ordenar por prioridad (No Encadenado/Rojo > En reparación/Naranja > Reportado/Blanco > Presentado/Azul > Listo/Verde)
     // En caso de empate, ordenar por vencimiento SLA (los más urgentes o vencidos primero)
@@ -1847,26 +1838,30 @@ function renderHistoryTable(filteredList = null) {
     lucide.createIcons();
 }
 
+let activeSupervisorPhotoBase64 = null;
+
 window.markAsPresentado = function(reportId) {
     const container = containers.find(c => c.reportId === reportId);
     if (!container) return;
 
-    if (confirm(`¿Desea marcar el contenedor ${container.id} como PRESENTADO (Resuelto por Supervisor)?`)) {
-        container.statusAdmin = "presentado";
-        const timestamp = new Date().toISOString();
-        const userName = currentAuthUser ? currentAuthUser.fullName : "Supervisor";
-        container.history.push({
-            timestamp: timestamp,
-            status: "presentado",
-            notes: `Contenedor presentado en poza por ${userName}.`
-        });
-        saveData();
-        renderHistoryTable();
-        updateDashboardMetrics();
-        if (typeof renderTallerModule === "function") renderTallerModule();
-        showToast(`Contenedor ${container.id} marcado como Presentado.`, "success");
-    }
+    document.getElementById("present-report-id").value = reportId;
+    document.getElementById("present-container-code").textContent = `${container.id} (${container.capacity})`;
+    document.getElementById("supervisor-present-notes").value = "";
+    
+    activeSupervisorPhotoBase64 = null;
+    const previewContainer = document.getElementById("supervisor-photo-preview-container");
+    const photoLabel = document.getElementById("supervisor-photo-label");
+    if (previewContainer) previewContainer.style.display = "none";
+    if (photoLabel) photoLabel.textContent = "Haga clic para subir foto de evidencia";
+
+    const modal = document.getElementById("supervisor-present-modal");
+    if (modal) modal.classList.add("open");
 };
+
+function closeSupervisorPresentModal() {
+    const modal = document.getElementById("supervisor-present-modal");
+    if (modal) modal.classList.remove("open");
+}
 
 function filterHistory() {
     const searchVal = searchInput.value.toLowerCase().trim();
@@ -2927,6 +2922,68 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 showToast(`Reparación registrada para contenedor ${c.id}. Copie el reporte para WhatsApp.`, "success");
+    // Formulario Presentar Contenedor (Supervisor)
+    const btnCloseSupervisorPresent = document.getElementById("btn-close-supervisor-present");
+    const btnCancelSupervisorPresent = document.getElementById("btn-cancel-supervisor-present");
+    const modalSupervisorPresent = document.getElementById("supervisor-present-modal");
+
+    if (btnCloseSupervisorPresent) btnCloseSupervisorPresent.addEventListener("click", closeSupervisorPresentModal);
+    if (btnCancelSupervisorPresent) btnCancelSupervisorPresent.addEventListener("click", closeSupervisorPresentModal);
+    if (modalSupervisorPresent) {
+        modalSupervisorPresent.addEventListener("click", (e) => {
+            if (e.target.id === "supervisor-present-modal") closeSupervisorPresentModal();
+        });
+    }
+
+    const inputSupervisorPhoto = document.getElementById("input-supervisor-present-photo");
+    if (inputSupervisorPhoto) {
+        inputSupervisorPhoto.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const base64 = await compressImage(file, 800, 0.7);
+                activeSupervisorPhotoBase64 = base64;
+                const imgPreview = document.getElementById("supervisor-photo-preview");
+                const previewContainer = document.getElementById("supervisor-photo-preview-container");
+                const photoLabel = document.getElementById("supervisor-photo-label");
+                if (imgPreview && previewContainer) {
+                    imgPreview.src = base64;
+                    previewContainer.style.display = "block";
+                }
+                if (photoLabel) photoLabel.textContent = "Foto Adjunta ✓ (Cambiar)";
+            }
+        });
+    }
+
+    const formSupervisorPresent = document.getElementById("supervisor-present-form");
+    if (formSupervisorPresent) {
+        formSupervisorPresent.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const reportId = document.getElementById("present-report-id").value;
+            const notes = document.getElementById("supervisor-present-notes").value.trim();
+
+            const idx = containers.findIndex(c => c.reportId === reportId);
+            if (idx > -1) {
+                containers[idx].statusAdmin = "presentado";
+                if (activeSupervisorPhotoBase64) {
+                    containers[idx].photoContainer = activeSupervisorPhotoBase64;
+                }
+
+                const timestamp = new Date().toISOString();
+                const userName = currentAuthUser ? currentAuthUser.fullName : "Supervisor";
+                containers[idx].history.push({
+                    timestamp: timestamp,
+                    status: "presentado",
+                    notes: `Contenedor presentado en poza por [${userName}]. Evidencia adjunta. ${notes ? 'Obs: ' + notes : ''}`
+                });
+
+                saveData();
+                closeSupervisorPresentModal();
+                renderMonitoringPanel();
+                renderHistoryTable();
+                updateDashboardMetrics();
+                if (typeof renderTallerModule === "function") renderTallerModule();
+
+                showToast(`Contenedor ${containers[idx].id} presentado en poza y culminado con éxito.`, "success");
             }
         });
     }
