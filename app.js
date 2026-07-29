@@ -537,6 +537,7 @@ const triggerSwitchView = setupNavigation();
 // ==========================================================================
 
 let currentBatch = [];
+let isSubmittingBatch = false;
 
 function generateUUID() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -1428,6 +1429,14 @@ function switchFormStep(step) {
 function resetFormState() {
     reportForm.reset();
     editingReportId = null;
+    isSubmittingBatch = false;
+    
+    const btnSubmit = document.getElementById("btn-submit-form");
+    if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.style.pointerEvents = "auto";
+        btnSubmit.style.opacity = "1";
+    }
     
     document.getElementById("form-card-title").textContent = "Registro de Contenedores por Lotes";
     
@@ -1465,10 +1474,21 @@ document.getElementById("btn-edit-header").addEventListener("click", () => {
     switchFormStep(1);
 });
 
-reportForm.addEventListener("submit", async (e) => {
+reportForm.addEventListener("submit", (e) => {
     e.preventDefault();
     
+    if (isSubmittingBatch) return;
+    
     if (validateForm()) {
+        isSubmittingBatch = true;
+        
+        const btnSubmit = document.getElementById("btn-submit-form");
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.style.pointerEvents = "none";
+            btnSubmit.style.opacity = "0.6";
+        }
+
         const supervisor = inputSupervisor.value.trim();
         const reportDate = inputReportDate.value;
         const inspector = inputInspector.value.trim();
