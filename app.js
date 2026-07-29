@@ -2928,6 +2928,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 showToast(`Reparación registrada para contenedor ${c.id}. Copie el reporte para WhatsApp.`, "success");
+            }
+        });
+    }
+
     // Formulario Presentar Contenedor (Supervisor)
     const btnCloseSupervisorPresent = document.getElementById("btn-close-supervisor-present");
     const btnCancelSupervisorPresent = document.getElementById("btn-cancel-supervisor-present");
