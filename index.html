@@ -363,22 +363,25 @@
                                     <i data-lucide="save" style="width: 16px; height: 16px;"></i>
                                     <span>Guardar</span>
                                 </button>
-                                <button class="btn btn-secondary btn-print-report" onclick="window.print()" id="btn-print-report">
-                                    <i data-lucide="printer" style="width: 16px; height: 16px;"></i>
-                                    <span>Imprimir Reporte</span>
+                                <button class="btn btn-secondary btn-print-report" onclick="downloadTableImage()" id="btn-print-report">
+                                    <i data-lucide="image" style="width: 16px; height: 16px;"></i>
+                                    <span>Descargar Tabla (Imagen)</span>
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive screen-only-table">
+                        <div class="table-responsive screen-only-table" id="status-table-container">
                             <table class="data-table">
                                 <thead>
                                     <tr>
                                         <th>Contenedor</th>
-                                        <th>Tipo de Residuo</th>
+                                        <th>Tipo</th>
+                                        <th>Capacidad</th>
                                         <th>Reportado Por</th>
-                                        <th>Fecha Observado</th>
-                                        <th>Fecha Límite (SLA)</th>
-                                        <th>Fotos Validar</th>
+                                        <th>Inspector</th>
+                                        <th>Observación</th>
+                                        <th>Fecha Reporte</th>
+                                        <th>Fecha Vencimiento</th>
+                                        <th>Fotos</th>
                                         <th style="width: 220px;">Estado Operativo (Administración)</th>
                                     </tr>
                                 </thead>
@@ -388,26 +391,6 @@
                             </table>
                         </div>
 
-                        <!-- Tabla Exclusiva de Impresión en el Orden Solicitado -->
-                        <div class="print-only-table-container">
-                            <table class="data-table print-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Tipo</th>
-                                        <th>Capacidad</th>
-                                        <th>Supervisor</th>
-                                        <th>Inspector</th>
-                                        <th>Observación</th>
-                                        <th>Fecha de Observación</th>
-                                        <th>Fecha Límite</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="print-monitoring-table-body">
-                                    <!-- Renderizado dinámicamente por JS para impresión -->
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
                 </section>
 
@@ -919,6 +902,8 @@
     <!-- NOTIFICACIONES TOAST (PARA FEEDBACK DE ACCIONES) -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- html2canvas for table image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Custom JavaScript -->
     <script type="module" src="app.js"></script>
 </body>

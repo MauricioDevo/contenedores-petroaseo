@@ -1087,23 +1087,33 @@ function renderMonitoringPanel() {
         // Icono de Alerta de Urgencia si quedan 1d o menos y no está listo
         const isUrgent = (sla.daysLeft <= 1 && currentStatusVal !== "listo");
         const urgentAlertHtml = isUrgent ? `<i data-lucide="alert-triangle" style="width:14px; height:14px; color:var(--status-retained); animation: pulse-retained 1.5s infinite; vertical-align: middle; margin-left: 6px;" title="Urgente: Plazo por vencer o vencido"></i>` : "";
+        const observationText = c.notes.trim() || "Sin observaciones";
 
         return `
             <tr class="status-row-bg val-${currentStatusVal}">
+                <!-- 1. Contenedor -->
                 <td style="font-weight: 700; color: var(--text-primary); font-size: 14px;">
                     <span>${c.id}</span>
                     ${urgentAlertHtml}
                 </td>
+                <!-- 2. Tipo -->
                 <td><span class="badge ${typeMeta.badgeClass}">${typeMeta.text}</span></td>
-                <td>
-                    <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${c.supervisor}</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">${c.inspector} (Insp.)</div>
-                </td>
+                <!-- 3. Capacidad -->
+                <td style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">${c.capacity}</td>
+                <!-- 4. Reportado por -->
+                <td style="font-weight: 600; font-size: 13px; color: var(--text-primary);">${c.supervisor}</td>
+                <!-- 5. Inspector -->
+                <td style="font-size: 12px; color: var(--text-muted);">${c.inspector} (Insp.)</td>
+                <!-- 6. Observación -->
+                <td style="font-size: 12px; color: var(--text-secondary); max-width: 200px; word-wrap: break-word; white-space: normal;">${observationText}</td>
+                <!-- 7. Fecha de reporte -->
                 <td style="font-size: 13px; color: var(--text-secondary);">${dateFormatted}</td>
+                <!-- 8. Fecha vencimiento -->
                 <td>
                     <div style="font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 4px;">${deadlineFormatted}</div>
                     <div>${slaBadgeHtml}</div>
                 </td>
+                <!-- 9. Fotos -->
                 <td>
                     <div class="photo-thumbnail-group">
                         <div class="photo-placeholder-wrapper" data-report-id="${c.reportId}" data-field="photoInspector" onclick="openLightboxOnDemand('${c.reportId}', 'photoInspector')" title="Ver Foto del Inspector">
@@ -1114,6 +1124,7 @@ function renderMonitoringPanel() {
                         </div>
                     </div>
                 </td>
+                <!-- 10. Estado Operativo -->
                 <td class="status-cell-bg val-${currentStatusVal}">
                     ${currentUserRole === "admin" ? `
                     <div class="status-select-wrapper">
@@ -1152,38 +1163,6 @@ function renderMonitoringPanel() {
             </tr>
         `;
     }).join("");
-
-    // Renderizar filas en la tabla de impresión en el orden solicitado: Código, Tipo, Capacidad, Supervisor, Inspector, Observación, Fecha de Observación, Fecha Límite.
-    const printMonitoringBody = document.getElementById("print-monitoring-table-body");
-    if (printMonitoringBody) {
-        printMonitoringBody.innerHTML = filtered.map(c => {
-            const typeMeta = TYPE_DICT[c.type] || { text: "Otro" };
-            const typeText = typeMeta.text.split(" ")[0]; // Solo el nombre del residuo
-            const sla = getSlaInfo(c.reportDate);
-            
-            const dateObj = new Date(c.reportDate + "T00:00:00");
-            const dateFormatted = dateObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
-            
-            const deadlineObj = new Date(sla.deadline);
-            const deadlineFormatted = deadlineObj.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
-            
-            const obs = c.notes.trim() || "Sin observaciones";
-            const currentStatusVal = unsavedChanges[c.id] || c.statusAdmin;
-            
-            return `
-                <tr class="status-row-bg val-${currentStatusVal}">
-                    <td style="font-weight: bold; color: #000 !important;">${c.id}</td>
-                    <td style="color: #000 !important;">${typeText}</td>
-                    <td style="color: #000 !important;">${c.capacity}</td>
-                    <td style="color: #000 !important;">${c.supervisor}</td>
-                    <td style="color: #000 !important;">${c.inspector}</td>
-                    <td style="color: #000 !important;">${obs}</td>
-                    <td style="font-family: monospace; color: #000 !important;">${dateFormatted}</td>
-                    <td style="font-family: monospace; font-weight: bold; color: #000 !important;">${deadlineFormatted}</td>
-                </tr>
-            `;
-        }).join("");
-    }
 
     lucide.createIcons();
     lazyLoadTableThumbnails();
@@ -2570,6 +2549,47 @@ window.openRepairModal = function(reportId) {
     const modal = document.getElementById("repair-action-modal");
     if (modal) modal.classList.add("open");
     if (window.lucide) window.lucide.createIcons();
+};
+
+window.downloadTableImage = function() {
+    const tableContainer = document.getElementById("status-table-container");
+    if (!tableContainer) return;
+
+    if (typeof html2canvas === "undefined") {
+        showToast("Cargando motor de captura de imagen. Espere 2 segundos e intente nuevamente.", "error");
+        return;
+    }
+
+    showToast("Generando captura en HD de la tabla de status...", "info");
+
+    const originalStyle = tableContainer.getAttribute("style") || "";
+    
+    // Configurar temporalmente para capturar el 100% del ancho del elemento sin recortes
+    tableContainer.style.overflow = "visible";
+    tableContainer.style.width = "auto";
+    tableContainer.style.maxWidth = "none";
+    tableContainer.style.position = "absolute";
+    tableContainer.style.left = "-9999px";
+    
+    html2canvas(tableContainer, {
+        backgroundColor: "#0d1117", // Fondo oscuro premium
+        scale: 2, // Ultra HD
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
+        tableContainer.setAttribute("style", originalStyle);
+        
+        const link = document.createElement("a");
+        link.download = `reporte_tabla_status_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        
+        showToast("Captura de imagen descargada con éxito.", "success");
+    }).catch(err => {
+        console.error("Error al exportar a imagen:", err);
+        tableContainer.setAttribute("style", originalStyle);
+        showToast("No se pudo generar la imagen de la tabla.", "error");
+    });
 };
 
 window.renderDashboard = function() {
