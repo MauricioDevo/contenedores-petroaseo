@@ -436,8 +436,8 @@ function setupNavigation() {
         if (currentUserRole !== "admin" && currentUserRole !== "taller" && targetViewId === "modulo-taller") {
             targetViewId = "reporte-contenedor";
         }
-        if (currentUserRole === "taller" && targetViewId === "dashboard") {
-            targetViewId = "modulo-taller";
+        if (currentUserRole !== "admin" && targetViewId === "dashboard") {
+            targetViewId = currentUserRole === "taller" ? "modulo-taller" : "reporte-contenedor";
         }
 
         // Reiniciar formulario si salimos de él sin guardar
@@ -2781,7 +2781,7 @@ window.switchUserRole = function(role, userObj = null) {
         if (liStatus) liStatus.style.display = "block";
         if (liTaller) liTaller.style.display = "none";
         if (liUsuarios) liUsuarios.style.display = "none";
-        if (liDashboard) liDashboard.style.display = "block";
+        if (liDashboard) liDashboard.style.display = "none";
         if (maintenanceCard) maintenanceCard.style.display = "none";
  
         if (authText) authText.textContent = "Acceso de Usuario";
@@ -2798,11 +2798,11 @@ window.switchUserRole = function(role, userObj = null) {
         if (nameEl) nameEl.textContent = "Supervisor de Turno";
         if (roleEl) roleEl.textContent = "Control de Planta";
  
-        // Si estaba en una vista privilegiada (como taller o usuarios), devolverlo a reporte
+        // Si estaba en una vista privilegiada (como taller, usuarios o dashboard), devolverlo a reporte
         const activeNavBtn = document.querySelector(".nav-btn.active");
         if (activeNavBtn) {
             const target = activeNavBtn.getAttribute("data-target");
-            if (target === "gestion-usuarios" || target === "modulo-taller") {
+            if (target === "gestion-usuarios" || target === "modulo-taller" || target === "dashboard") {
                 triggerSwitchView("reporte-contenedor");
             }
         }
