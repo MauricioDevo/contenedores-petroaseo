@@ -1797,10 +1797,7 @@ button, input, select, textarea {
         grid-template-columns: 1fr;
     }
 
-    /* Ocultar botón de admin en celular */
-    #btn-admin-auth {
-        display: none !important;
-    }
+
 
     /* Ajustes del Stepper en Móvil */
     .form-stepper {
